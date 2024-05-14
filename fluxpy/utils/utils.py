@@ -1,15 +1,21 @@
+import cobra
+import math
 import numpy as np
 import pandas as pd
-import math
 from enum import Enum
+from typing import List
+from mergem import merge
 
-class MyEnum(Enum):
+
+NestedDataFrameType = pd.DataFrame
+class conversions(Enum):
     REACTION_NAMES = "reactionNames"
     REACTION_IDS = "reactionIds"
     METABOLITE_NAMES = "metaboliteNames"
     METABOLITE_IDS = "metaboliteIds"
 
-NestedDataFrameType = pd.DataFrame
+all_namespaces = ["chebi", "metacyc", "kegg", "reactome", "metanetx", "hmdb", "biocyc", "bigg", "seed", "sabiork", "rhea"]
+
 
 def nonzero_fluxes(sol: pd.Series):
     """
@@ -17,6 +23,19 @@ def nonzero_fluxes(sol: pd.Series):
     """
     mask = sol.fluxes.to_numpy().nonzero()
     return sol.fluxes.iloc[mask]
+
+
+def _convert_list_to_binary(lst):
+    """
+    Converts a ndarray to a binary decision based on the presence of at least a nonzero/True case.
+    """
+    if isinstance(lst, np.ndarray):
+        if any(lst):
+            return 1
+        else:
+            return 0
+    else:
+        return lst
 
 
 def get_reactions_producing_met(model, met_id):
@@ -128,7 +147,18 @@ def get_nutrients_gradient(model, nutrients=None, upper_bound=None, step=None) -
     return df
 
 
-class convert_names_ids:
+class Models:
+    """
+    Load a list of sbml models with cobra as attributes of a class.
+    """
+    def __init__(self, model_list: List[str], model_names: List[str] = None):
+        if model_names is None:
+            model_names =  ["".join(model.split("/")[-1].split(".")[:-1]) for model in model_list]
+        for model_name, model_file in zip(model_names, model_list):
+            setattr(self, model_name, cobra.io.read_sbml_model(model_file))
+
+
+class NameIdConverter:
     """
     A class to switch indexes of a dataframe from ids to names and vice versa for metabolites and reactions of a model.
 
@@ -137,12 +167,12 @@ class convert_names_ids:
     convert -- current namespace of the df; values from ['reactionNames', reactionIds, 'metaboliteNames', 'metaboliteIds']
     to -- namespace to switch to; values as in `convert`
     """
-    def __init__(self, model, df: pd.DataFrame, convert: str, to: str ):
+    def __init__(self, model, df: pd.DataFrame, convert: str, to: str, init_only=False):
 
         try:
-            convert, to = MyEnum(convert), MyEnum(to)
+            convert, to = conversions(convert), conversions(to)
         except:
-            raise ValueError("Both convert and to need to be among 'reactionNames', reactionIds, 'metaboliteNames' and 'metaboliteIds'")
+            raise ValueError(f"Both convert and to need to be among {[x.value for x in conversions.mro()]}")
 
         met_map_df = pd.DataFrame([(met.id, met.name) for met in model.metabolites], columns=["id", "name"])
         react_map_df = pd.DataFrame([(react.id, react.name) for react in model.reactions], columns=["id", "name"])
@@ -153,9 +183,11 @@ class convert_names_ids:
         self.model = model
         self.df = df.to_frame().copy()
         self.isIndex = isinstance(df, pd.Index)
+        if not init_only:
+            self.run_convert()
 
 
-    def run_convert(self):
+    def _run_convert(self):
 
         convert_cases = {
             (self.convert.REACTION_NAMES.value,   self.to.REACTION_IDS.value): self.reactNames2reactIds,
@@ -176,7 +208,7 @@ class convert_names_ids:
         return self.df
 
 
-    def metIds2metNames(self):
+    def _metIds2metNames(self):
 
         self.met_map_df.set_index('id', inplace=True)
         id_to_name_mapping = self.met_map_df['name'].to_dict()
@@ -187,7 +219,7 @@ class convert_names_ids:
             self.df.columns = ["name"]
         return self.df
 
-    def metNames2metIds(self):
+    def _metNames2metIds(self):
 
         self.met_map_df.set_index('name', inplace=True)
         id_to_name_mapping = self.met_map_df['id'].to_dict()
@@ -197,7 +229,7 @@ class convert_names_ids:
         return self.df
 
 
-    def reactIds2reactNames(self):
+    def _reactIds2reactNames(self):
 
         self.react_map_df.set_index('id', inplace=True)
         id_to_name_mapping = self.react_map_df['name'].to_dict()
@@ -207,7 +239,7 @@ class convert_names_ids:
         return self.df
 
 
-    def reactNames2reactIds(self):
+    def _reactNames2reactIds(self):
 
         self.react_map_df.set_index('name', inplace=True)
         id_to_name_mapping = self.react_map_df['id'].to_dict()
@@ -217,60 +249,133 @@ class convert_names_ids:
         return self.df
 
 
-class compare_models:
+class CompareModels:
     """
-    Use mergem <https://mergem.readthedocs.io/> to compare a pair of models and returns a dataframe with
-    reactions unique in model1 and model2 and those they share
+    Using mergem <https://mergem.readthedocs.io/> to compare a pair of models and returns a dataframe with
+    reactions unique in model1 and model2 and those they share.
+
+    Key arguments:\n
+    model_list -- list of paths to model files to compare \n
+    trans_to_db -- mergem allows to map metabolite and reaction ids to a series of namespaces.
     """
-    def __init__(self, model_list ):
-        import mergem
-        number_of_models = len(model_list)
+
+    def __init__(self, model_list: List[str], trans_to_db=None):
+
+        self.number_of_models = len(model_list)
         self.model_names = ["".join(model.split("/")[-1].split(".")[:-1]) for model in model_list]
-        self.res = mergem.merge(model_list, set_objective='merge')
+        self.models = Models(model_list)
+        if trans_to_db is not None and trans_to_db not in all_namespaces:
+            raise ValueError(f"namespace needs to be among {all_namespaces}")
+        self.namespace = trans_to_db
+
+        # Run mergem
+        self.res = merge(model_list, set_objective='merge', trans_to_db=self.namespace)
+
+        # Create presence-absence dataframes
         res = self.res.copy()
         for lst in res["met_sources"]:
-            for i in range(number_of_models):
+            for i in range(self.number_of_models):
                 if i not in res["met_sources"][lst]:
-                    res["met_sources"][lst].insert(i, np.nan)
+                    res["met_sources"][lst][i] = np.nan
         for lst in res["reac_sources"]:
-            for i in range(number_of_models):
+            for i in range(self.number_of_models):
                 if i not in res["reac_sources"][lst]:
-                    res["reac_sources"][lst].insert(i, np.nan)
-        self.metabolites_df = pd.DataFrame.from_dict(res["met_sources"], orient="index")
-        self.metabolites_df = self.metabolites_df.applymap(lambda x: 1 if pd.notnull(x) else 0)
+                    res["reac_sources"][lst][i] = np.nan
+
+        metabolites_df = pd.DataFrame.from_dict(res["met_sources"], orient="index")
+        metabolites_df = metabolites_df.applymap(lambda x: np.where(pd.notnull(x), 1, 0))
+        self.metabolites_df = metabolites_df.applymap(lambda x: _convert_list_to_binary(x))
         self.metabolites_df.columns = self.model_names
-        self.reactions_df = pd.DataFrame.from_dict(self.res["reac_sources"], orient="index")
-        self.reactions_df = self.reactions_df.applymap(lambda x: 1 if pd.notnull(x) else 0)
+
+        reactions_df = pd.DataFrame.from_dict(self.res["reac_sources"], orient="index")
+        reactions_df = reactions_df.applymap(lambda x: np.where(pd.notnull(x), 1, 0))
+        self.reactions_df = reactions_df.applymap(lambda x: _convert_list_to_binary(x))
         self.reactions_df.columns = self.model_names
 
-    def unique_metabolites_for(self, model_name):
-        filtered_df = self.metabolites_df[self.metabolites_df[model_name] == 1]
-        indices = filtered_df.index[filtered_df.drop(columns=[model_name]).sum(axis=1) == 0]
-        return indices
 
-    def unique_reactions_for(self, model_name):
-        filtered_df = self.reactions_df[self.reactions_df[model_name] == 1]
-        indices = filtered_df.index[filtered_df.drop(columns=[model_name]).sum(axis=1) == 0]
-        return indices
-
-
-    def compare_model_pair(self, base_model, model_to_compare):
+    def unique_metabolites(self, model_name):
         """
+        Returns:
+        unique_mets -- a pd.Index with the metabolites that are only present in model_name and not in any other of those in model_list
+        """
+        filtered_df = self.metabolites_df[self.metabolites_df[model_name] == 1]
+        unique_mets = filtered_df.index[filtered_df.drop(columns=[model_name]).sum(axis=1) == 0]
+        return unique_mets
+
+    def unique_reactions(self, model_name):
+        """
+        Key arguments:
+        model_name -- the name (column name) of the model for which unique reactions will be found
+
+        Returns:
+        model_unique_reactions -- a pd.Index with the reactions that are only present in the model_name and not in any other of those in model_list
+        """
+        filtered_df = self.reactions_df[self.reactions_df[model_name] == 1]
+        unique_reacts = filtered_df.index[filtered_df.drop(columns=[model_name]).sum(axis=1) == 0]
+        return unique_reacts
+
+
+    def compare_model_pair(self, base_model=None, model_to_compare=None):
+        """
+        Compare pairwise models
+
+        Key arguments:
+        base_model -- name of the model as in dataframe, i.e. filename without the extension
+        model_to_compare -- name of the model as in dataframe, i.e. filename without the extension
+
         Returns:
         r1 -- reactions only present in base model
         r2 -- reactions only present in model_to_compare
+        m1 -- metabolites only present in base_model
+        m2 -- metabolites only present in model_to_compare
         """
-        reactions_m1 = self.reactions_df[self.reactions_df[base_model] == 1]
-        reactions_m2 = self.reactions_df[self.reactions_df[model_to_compare] == 1]
-        r1 = reactions_m1.index.difference(reactions_m2.index)
-        r2 = reactions_m2.index.difference(reactions_m1.index)
-        return r1, r2
+
+        if base_model is None and model_to_compare is None and self.number_of_models == 2:
+            base_model, model_to_compare = self.model_names[0], self.model_names[1]
+
+        reactions_m1 = self.reactions_df[self.reactions_df[base_model] == 1].index
+        reactions_m2 = self.reactions_df[self.reactions_df[model_to_compare] == 1].index
+        r1 = reactions_m1.difference(reactions_m2)
+        r2 = reactions_m2.difference(reactions_m1)
+
+        metabolites_m1 = self.reactions_df[self.metabolites_df[base_model] == 1].index
+        metabolites_m2 = self.reactions_df[self.metabolites_df[model_to_compare] == 1].index
+        m1 = metabolites_m1.difference(metabolites_m2)
+        m2 = metabolites_m2.difference(metabolites_m1)
+        return r1, r2, m1, m2
 
 
-    def shared_metabolites_among(self, models_subset=None):
+    def shared_metabolites(self, models_subset=None):
+        """
+        Key arguments:
+        models_subset -- list of models to get shared metabolites and reactions
 
+        Returns:
+        shared_reactions -- a pd.Index with rearctions present among all models of models_subset
+        """
         if models_subset is None:
             models_subset = self.model_names
+        df = self.metabolites_df[models_subset]
+        shared_metabolites = df[df.eq(1).all(axis=1)]
+
+        return shared_metabolites.index
+
+
+    def shared_reactions(self, models_subset=None):
+        """
+        Key arguments:
+        models_subset -- list of models to get shared metabolites and reactions
+
+        Returns:
+        shared_reactions -- a pd.Index with rearctions present among all models of models_subset
+        """
+        if models_subset is None:
+            models_subset = self.model_names
+        df = self.reactions_df[models_subset]
+        shared_reactions = df[df.eq(1).all(axis=1)]
+
+        return shared_reactions.index
+
 
 
 
@@ -288,18 +393,3 @@ class compare_models:
         # self.unique_metabolites_model1 =
         # self.unique_metabolites_model2 =
 
-
-"""
-import fluxpy
-import cobra
-input_model_list = ['gf_compl_default_bf/s_infantis_gf_default_bf_compl_medium.sbml', 'nn_gf_default_bf_mvl3A/s_infantis_nn_gf_mvl3_def_bf.xml', 'base/s_infantis_default_bf_no_gf.sbml']
-f = fluxpy.utils.compare_models(input_model_list)
-g = f.unique_metabolites_for("s_infantis_nn_gf_mvl3_def_bf")
-h = fluxpy.utils.convert_names_ids(f.res["merged_model"], g, "metaboliteIds", "metaboliteNames")
-h.run_convert()
-
-m = cobra.io.read_sbml_model(input_model_list[0])
-sol = m.optimize()
-
-o = fluxpy.utils.convert_names_ids(m, sol.shadow_prices, "metaboliteIds", "metaboliteNames")
-"""
