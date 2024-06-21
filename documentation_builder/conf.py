@@ -40,6 +40,7 @@ extensions = [
 autoapi_dirs = [join(SRC_PATH, "fluxpy")]
 autoapi_add_toctree_entry = False
 
+
 # Enable typehints
 autodoc_typehints = "signature"
 
@@ -73,6 +74,7 @@ mathjax_path = (
     "https://cdn.mathjax.org/mathjax/latest/"
     "MathJax.js?config=TeX-AMS-MML_HTMLorMML"
 )
+html_theme = "furo"
 
 # -- Options for LaTeX output --------------------------------------------------
 

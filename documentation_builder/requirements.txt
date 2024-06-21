@@ -1,4 +1,4 @@
-Sphinx~=5.3
+Sphinx~=7.0.0
 sphinxcontrib-napoleon
 sphinx-autoapi
 nbsphinx>=0.2.4
