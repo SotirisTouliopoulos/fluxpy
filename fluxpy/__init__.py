@@ -9,9 +9,7 @@ from .utils import nonzero_fluxes, get_reactions_producing_met, get_nutrients_gr
 
 # Import classes
 from .utils import Models, NameIdConverter, CompareModels
-
 from .stats import extract_stats_from_solution
 from .illustrations import illustrations
-from .constants import SEED2MNX, BIGG2MNX
 
 __all__ = [name for name in dir() if not name.startswith('_')]
