@@ -1,3 +1,6 @@
+""" Routines to convert files and objects from a format to another """
+
+
 def convert_gbk_to_faa(gbk_input_filename, faa_output_filename):
     """
     A function to convert a .gbk file returned from the RAST annotation to
@@ -25,8 +28,5 @@ def convert_gbk_to_faa(gbk_input_filename, faa_output_filename):
     input_handle.close()
 
     return 0
-
-
-
 
 

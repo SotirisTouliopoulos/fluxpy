@@ -1,3 +1,6 @@
+"""Functionalities to visualize findings of various types of metabolic modeling analysis"""
+
+
 import math
 import numpy as np
 import pandas as pd

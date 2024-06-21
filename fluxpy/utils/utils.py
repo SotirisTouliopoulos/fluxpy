@@ -1,3 +1,6 @@
+""" fluxpy's main scope: provide functionalities to handle metabolic modeling analysis objects"""
+
+
 import json
 import cobra
 import math

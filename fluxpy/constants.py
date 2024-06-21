@@ -1,3 +1,6 @@
+"""Global variables for the fluxpy library"""
+
+
 import seaborn as sns
 import os
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
@@ -37,8 +40,6 @@ root_folder = os.path.dirname(parent_folder)
 EXT_DATA = os.path.join(root_folder, "ext_data")
 SEED2MNX = os.path.join(EXT_DATA, "seed2mnx.json")
 BIGG2MNX = os.path.join(EXT_DATA, "bigg2mnx.json")
-
-
 
 BIGG_COFACTORS = ['atp[c]', 'atp_c', 'adp_c', 'adp[c]',
                   'atp[c]', 'atp_c', 'adp_c', 'adp[c]',

@@ -1,3 +1,6 @@
+"""Routines to calculate stats on findings of metabolic modeling analysis"""
+
+
 import numpy as np
 from scipy.stats import linregress
 
