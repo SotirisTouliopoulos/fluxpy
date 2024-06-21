@@ -1,6 +1,5 @@
 """Functionalities to visualize findings of various types of metabolic modeling analysis"""
 
-
 import math
 import numpy as np
 import pandas as pd
@@ -13,9 +12,9 @@ import dash_cytoscape as cyto
 import plotly.graph_objs as go
 from ..constants import *
 
-"""
-Envelope analysis
-"""
+# """
+# Envelope analysis
+# """
 def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, height=600):
     """
     This function takes as arguments 3 columns of the cobra production_envelope() result
@@ -32,7 +31,7 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     from cobra.flux_analysis import production_envelope
     prod_env = production_envelope(model, ["EX_glc__D_e", "EX_o2_e"])
     prod_env.head(3)
-        carbon_source	flux_minimum	carbon_yield_minimum	mass_yield_minimum	flux_maximum	carbon_yield_maximum	mass_yield_maximum	EX_glc__D_e	EX_o2_e
+    carbon_source	flux_minimum	carbon_yield_minimum	mass_yield_minimum	flux_maximum	carbon_yield_maximum	mass_yield_maximum	EX_glc__D_e	EX_o2_e
     0	EX_glc__D_e	0.0	0.0	0.0	0.000000	0.000000	0.000000	-10.0	-60.000000
     1	EX_glc__D_e	0.0	0.0	0.0	1.578947	0.052632	0.051748	-10.0	-56.842105
     2	EX_glc__D_e	0.0	0.0	0.0	3.157895	0.105263	0.103496	-10.0	-53.684211
@@ -40,8 +39,6 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     x=prod_env['EX_o2_e']
     y=prod_env['EX_glc__D_e']
     z=prod_env['flux_maximum']
-
-    plot_prod_env_3D(x,y,z)
     """
     # Create a trace
     trace = go.Scatter3d(
@@ -233,9 +230,9 @@ def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=
 # compare in silico predictions against experiments
 
 
-"""
-Coupling Analysis
-"""
+# """
+# Coupling Analysis
+# """
 def qcfa_subgraphs(H):
     """
     Creates and runs a Dash application to visualize the QCFA subgraphs using a network graph.
