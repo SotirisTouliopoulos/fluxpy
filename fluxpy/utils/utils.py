@@ -14,7 +14,7 @@ from ..constants import *
 NestedDataFrameType = pd.DataFrame
 all_namespaces = ["chebi", "metacyc", "kegg", "reactome", "metanetx", "hmdb", "biocyc", "bigg", "seed", "sabiork", "rhea"]
 
-class conversions(Enum):
+class _conversions(Enum):
     REACTION_NAMES = "reactionNames"
     REACTION_IDS = "reactionIds"
     METABOLITE_NAMES = "metaboliteNames"
@@ -95,7 +95,7 @@ def get_reactions_producing_met(model, met_id):
 
 def get_nutrients_gradient(model, nutrients=None, upper_bound=None, step=None) -> NestedDataFrameType:
     """
-    Assuming a single medium comound changes at a time return FVA findings
+    Assuming a single medium comound changes at a time, it returns FVA findings over the chaning envs.
     The model.medium will be used, i.e. first set the medium you want to investigate to your model.
     Returns a df with as many rows as the model.medium and columns as many as their quotient by the step.
     Each cell of this df includes the fva result for the medium with the corresponding alteration.
@@ -233,7 +233,19 @@ def map2namespace(compounds, from_namespace="seed", to_namespace="bigg"):
 
 # %% Util functions: flux analysis
 def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, exclude_biomass=True, format="csv"):
+    """
+    Parses QFCA (Quantitative Fatty Acid Composition Analysis) output data into a networkx graph representation.
 
+    Args:
+        qfca_output (str): Path to the QFCA output file in CSV or Excel format.
+        model (object, optional): Metabolic model object. Default is None.
+        remove_exchange_routes (bool, optional): Whether to remove exchange reactions from the graph. Default is True.
+        exclude_biomass (bool, optional): Whether to exclude biomass reaction from the graph. Default is True.
+        format (str, optional): Format of the QFCA output file. Can be 'csv' or 'xlsx'. Default is 'csv'.
+
+    Returns:
+        nx.Graph: A networkx Graph representing the interactions between metabolic reactions based on QFCA data.
+    """
     if format=="csv":
         df = pd.read_csv(qfca_output, index_col=0)
     elif format=="xlsx":
@@ -300,16 +312,16 @@ def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, excl
 
 
 def samples_on_qfca(qfca_graph, samples):
+    """
+    ongoing
+    """
     from sklearn.metrics import silhouette_score
-
     from sklearn.cluster import KMeans
     from sklearn import metrics
-
 
     graph_rxns = list(qfca_graph.nodes)
     # df = np.zeros( [len(list(qfca_graph.nodes)), samples.shape[1] ])
     samples_with_graph_rnxs = samples.loc[graph_rxns]
-
 
     # Assuming df is your DataFrame containing continuous values
 
@@ -357,9 +369,9 @@ class NameIdConverter:
     def __init__(self, model, df: pd.DataFrame, convert: str, to: str, init_only=False):
 
         try:
-            convert, to = conversions(convert), conversions(to)
+            convert, to = _conversions(convert), _conversions(to)
         except:
-            raise ValueError(f"Both convert and to need to be among {[x.value for x in conversions.mro()]}")
+            raise ValueError(f"Both convert and to need to be among {[x.value for x in _conversions.mro()]}")
 
         met_map_df = pd.DataFrame([(met.id, met.name) for met in model.metabolites], columns=["id", "name"])
         react_map_df = pd.DataFrame([(react.id, react.name) for react in model.reactions], columns=["id", "name"])

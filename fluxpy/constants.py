@@ -3,7 +3,17 @@ import os
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
 
 
-def cmap():
+def _cmap():
+    """
+    Create a custom colormap.
+
+    This function defines a custom colormap using a list of hexadecimal color codes,
+    converts them to RGBA format, and then creates a LinearSegmentedColormap with
+    100 bins.
+
+    Returns:
+        LinearSegmentedColormap: A custom colormap with the specified colors.
+    """
     # Define your colors in hexadecimal format
     hex_colors = ['#9B32CD', '#DBD8DC', '#1FBDE7']
 
@@ -19,7 +29,7 @@ def cmap():
     return my_cmap
 
 
-CMAP = cmap()
+CMAP = _cmap()
 
 current_file_path = os.path.abspath(__file__)
 parent_folder = os.path.dirname(current_file_path)

@@ -10,7 +10,9 @@ import dash_cytoscape as cyto
 import plotly.graph_objs as go
 from ..constants import *
 
-
+"""
+Envelope analysis
+"""
 def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, height=600):
     """
     This function takes as arguments 3 columns of the cobra production_envelope() result
@@ -79,59 +81,18 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     return fig
 
 
-def flux_cone_example(facets=5, radius=5, cone_height=5, width=1000, height=1000):
-
-    # Function to generate random points inside the cone
-    def generate_points_inside_cone(n_points, radius, height):
-        # Generate random points in cylindrical coordinates
-        r = radius * np.sqrt(np.random.rand(n_points))
-        theta = np.random.rand(n_points) * 2 * np.pi
-        z = np.random.rand(n_points) * height
-
-        # Convert cylindrical coordinates to Cartesian
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-
-        # Filter out points outside the cone
-        valid_indices = (x**2 + y**2) <= (radius * (z / height))**2
-        x_inside = x[valid_indices]
-        y_inside = y[valid_indices]
-        z_inside = z[valid_indices]
-
-        return x_inside, y_inside, z_inside
-
-    # Generate random points inside the cone
-    n_points = 1000
-    x_points, y_points, z_points = generate_points_inside_cone(n_points, radius, cone_height)
-
-    # Create the figure
-    fig = go.Figure()
-
-    # Add the cone surface with transparency
-    for i in range(facets):
-        theta = i * 2 * np.pi / facets
-        next_theta = (i + 1) * 2 * np.pi / facets
-        x = [0, radius * np.cos(theta), radius * np.cos(next_theta)]
-        y = [0, radius * np.sin(theta), radius * np.sin(next_theta)]
-        z = [0, cone_height, cone_height]
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, color='rgba(0, 0, 255, 0.1)'))  # Adjust transparency here
-
-    # Add random points
-    fig.add_trace(go.Scatter3d(x=x_points, y=y_points, z=z_points, mode='markers',
-                            marker=dict(size=3, color='red')))
-
-    # Update layout
-    fig.update_layout(title='Flux Cone with Random Points',
-                    scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
-                    width=width , height=height)
-
-    return fig
-
-
-
 def plot_ranging_medium_compounds(model, dictionary_with_plots, dpi=500):
     """
+    Plots the behavior of medium compounds in a metabolic model across different concentrations.
 
+    Args:
+        model (object): The metabolic model object.
+        dictionary_with_plots (dict): A dictionary where keys are compound IDs, and values are tuples
+                                      containing lists of concentrations and corresponding flux values to plot.
+        dpi (int, optional): Dots per inch (resolution) for the saved figure. Default is 500.
+
+    Returns:
+        A .png file
     """
     plt.rcParams.update({'font.size': 4})
     fig, axs = plt.subplots(math.ceil(len(dictionary_with_plots)/6), 6)
@@ -164,15 +125,13 @@ def plot_ranging_medium_compounds(model, dictionary_with_plots, dpi=500):
     fig.savefig("medium_compounds_behavior.png", bbox_inches='tight', dpi=dpi)
 
 
-
-
 def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=12, height_size=12, save_fig=False, path="gradient.png", dpi=500):
     """
     For each nutrient on a gradient it returns differences for the minimum and maximum cases
     and plots a heatmap for each where reaction that are affected with the increase of the upper bound
     at least threshold*max_difference are displayed.
 
-    gradient -- output of the get_nutrients_gradient()
+    gradient -- output of the utils.get_nutrients_gradient()
     nutrients -- list with the reaction ids to be considered
     threshold -- per centage of the max difference that will be used to filter differences
     width_size -- width of each subplot
@@ -271,16 +230,20 @@ def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=
 # compare in silico predictions against experiments
 
 
-
-
-
-
 """
 Coupling Analysis
 """
-
 def qcfa_subgraphs(H):
+    """
+    Creates and runs a Dash application to visualize the QCFA subgraphs using a network graph.
 
+    Args:
+        H (networkx.Graph): A NetworkX graph where nodes represent reactions and edges represent relationships between them.
+                            The edge colors denote different types of couplings.
+
+    Returns:
+        A Dash application visualizing the QFCA-oriented graph.
+    """
     # Create Dash app
     app = Dash(__name__)
 
@@ -387,3 +350,82 @@ def qcfa_subgraphs(H):
 
     # Run the app
     app.run_server(debug=True)
+
+
+"""
+Sampling analysis
+"""
+def flux_cone_example(facets=5, radius=5, cone_height=5, width=1000, height=1000):
+    """
+    Generates a 3D plot of a flux cone with random points inside it.
+
+    Args:
+        facets (int): Number of facets (sides) for the cone surface.
+        radius (float): Radius of the base of the cone.
+        cone_height (float): Height of the cone.
+        width (int): Width of the plot in pixels.
+        height (int): Height of the plot in pixels.
+
+    Returns:
+        plotly.graph_objects.Figure: A Plotly figure object containing the 3D plot of the cone and the points inside it.
+    """
+
+    # Generate random points inside the cone
+    n_points = 1000
+    x_points, y_points, z_points = _generate_points_inside_cone(n_points, radius, cone_height)
+
+    # Create the figure
+    fig = go.Figure()
+
+    # Add the cone surface with transparency
+    for i in range(facets):
+        theta = i * 2 * np.pi / facets
+        next_theta = (i + 1) * 2 * np.pi / facets
+        x = [0, radius * np.cos(theta), radius * np.cos(next_theta)]
+        y = [0, radius * np.sin(theta), radius * np.sin(next_theta)]
+        z = [0, cone_height, cone_height]
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, color='rgba(0, 0, 255, 0.1)'))  # Adjust transparency here
+
+    # Add random points
+    fig.add_trace(go.Scatter3d(x=x_points, y=y_points, z=z_points, mode='markers',
+                            marker=dict(size=3, color='red')))
+
+    # Update layout
+    fig.update_layout(title='Flux Cone with Random Points',
+                    scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
+                    width=width , height=height)
+
+    return fig
+
+
+"""
+Internal routines
+"""
+def _generate_points_inside_cone(n_points, radius, height):
+    """
+    Generates random points inside a cone.
+
+    Args:
+        n_points (int): Number of random points to generate.
+        radius (float): Radius of the base of the cone.
+        height (float): Height of the cone.
+
+    Returns:
+        tuple: Three numpy arrays containing the x, y, and z coordinates of the points inside the cone.
+    """
+    # Generate random points in cylindrical coordinates
+    r = radius * np.sqrt(np.random.rand(n_points))
+    theta = np.random.rand(n_points) * 2 * np.pi
+    z = np.random.rand(n_points) * height
+
+    # Convert cylindrical coordinates to Cartesian
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+
+    # Filter out points outside the cone
+    valid_indices = (x**2 + y**2) <= (radius * (z / height))**2
+    x_inside = x[valid_indices]
+    y_inside = y[valid_indices]
+    z_inside = z[valid_indices]
+
+    return x_inside, y_inside, z_inside
