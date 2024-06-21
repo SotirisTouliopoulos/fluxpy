@@ -1,11 +1,15 @@
 import math
 import numpy as np
 import pandas as pd
-import plotly.graph_objs as go
-import matplotlib.pyplot as plt
+import networkx as nx
 import seaborn as sns
+import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from dash import Dash, html
+import dash_cytoscape as cyto
+import plotly.graph_objs as go
 from ..constants import *
+
 
 def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, height=600):
     """
@@ -260,3 +264,126 @@ def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=
 
     return all_min_dfs, all_max_dfs
 
+
+# give a list of metabolites
+# give their production/consumption based on experiments
+# give thei sampling means, fba, fva something value
+# compare in silico predictions against experiments
+
+
+
+
+
+
+"""
+Coupling Analysis
+"""
+
+def qcfa_subgraphs(H):
+
+    # Create Dash app
+    app = Dash(__name__)
+
+    # Draw the network with edge colors
+    pos = nx.random_layout(H, seed=666)  # positions for all nodes
+
+    # Define the layout of the app
+    nodes = [{'data': {'id': node, 'label': node}, 'position': {'x': pos[node][0], 'y': pos[node][1]}} for node in H.nodes()]
+    edge_id_counter=0
+    edges = [{'data': {'id': f"edge_{edge_id_counter + i}", 'source': u, 'target': v}, 'classes': H[u][v]['color']} for i, (u, v) in enumerate(H.edges())]
+    elements = nodes + edges
+
+    directed_edges_selector = ""
+    for edge in edges:
+        u = edge['data']['source']
+        v = edge['data']['target']
+        if H[u][v]['color'] != "black":
+            edge['classes'] += " triangle"
+            directed_edges_selector += "#"+edge['data']['id']+', '
+
+    directed_edges_selector = directed_edges_selector[:-2]
+
+    legend_layout = html.Div([
+        html.H3("Edge Legend"),
+        html.Ul([
+            html.Li([
+                html.Span("Grey: ", style={'color': 'grey'}), "Fully coupled reactions"
+            ]),
+            html.Li([
+                html.Span("Light Sea Green: ", style={'color': 'LightSeaGreen'}), "Partially coupled reactions"
+            ]),
+            html.Li([
+                html.Span("Dark Salmon: ", style={'color': 'DarkSalmon'}), "Reaction i is directionally coupled to reaction j"
+            ]),
+            html.Li([
+                html.Span("Steel Blue: ", style={'color': 'SteelBlue'}), "Reaction j is directionally coupled to reaction i"
+            ])
+
+        ])
+    ])
+
+
+    app.layout = html.Div([
+        legend_layout,
+        cyto.Cytoscape(
+            id='network-graph',
+            style={'width': '100%', 'height': '100vh'},
+            elements=elements,
+            stylesheet=[
+                    {
+                        'selector': 'node',  # Apply style to nodes
+                        'style': {
+                            'content': 'data(label)'  # Display node labels
+                        }
+                    },
+                    {
+                        'selector': '.red',
+                        'style': {
+                            'background-color': 'DarkSalmon',
+                            'line-color': 'DarkSalmon',
+                            'target-arrow-shape': 'none'
+                        }
+                    },
+                    {
+                        'selector': '.green',
+                        'style': {
+                            'background-color': 'LightSeaGreen',
+                            'line-color': 'LightSeaGreen'
+                        }
+                    },
+                    {
+                        'selector': '.blue',
+                        'style': {
+                            'background-color': 'SteelBlue',
+                            'line-color': 'SteelBlue'
+                        }
+                    },
+
+                    {
+                        'selector': '.black',
+                        'style': {
+                            'background-color': 'grey',
+                            'line-color': 'grey'
+                        }
+                    },
+
+                    {
+                        'selector': directed_edges_selector,
+                        'style': {
+                            'background-color': 'data(background-color)',
+                            'line-color': 'data(background-color)',  # Set line color based on data
+                            'target-arrow-color': 'data(background-color)',  # Set arrow color based on data
+                            'line-style': 'solid',  # Set line style to solid
+                            'curve-style': 'bezier',  # Set curve style to bezier
+                            'target-arrow-shape': 'triangle'  # Set arrow shape to triangle
+                        }
+                    },
+            ],
+            layout={
+                'name': 'cose'
+            },
+        )
+    ])
+
+    # Run the app
+    app.run_server(debug=True)

@@ -1,28 +1,24 @@
+import json
 import cobra
 import math
 import numpy as np
 import pandas as pd
+import networkx as nx
 from enum import Enum
 from typing import List
 from mergem import merge
+from ..constants import *
 
 
+# %% Inner functions
 NestedDataFrameType = pd.DataFrame
+all_namespaces = ["chebi", "metacyc", "kegg", "reactome", "metanetx", "hmdb", "biocyc", "bigg", "seed", "sabiork", "rhea"]
+
 class conversions(Enum):
     REACTION_NAMES = "reactionNames"
     REACTION_IDS = "reactionIds"
     METABOLITE_NAMES = "metaboliteNames"
     METABOLITE_IDS = "metaboliteIds"
-
-all_namespaces = ["chebi", "metacyc", "kegg", "reactome", "metanetx", "hmdb", "biocyc", "bigg", "seed", "sabiork", "rhea"]
-
-
-def nonzero_fluxes(sol: pd.Series):
-    """
-    Returns nonzero fluxes from a pandas series
-    """
-    mask = sol.fluxes.to_numpy().nonzero()
-    return sol.fluxes.iloc[mask]
 
 
 def _convert_list_to_binary(lst):
@@ -36,6 +32,22 @@ def _convert_list_to_binary(lst):
             return 0
     else:
         return lst
+
+
+def _convert_single_element_set(cell):
+    if isinstance(cell, set) and len(cell) == 1:
+        return next(iter(cell))  # Convert set to string
+    return cell
+
+
+# %% Util functions: parsing
+
+def nonzero_fluxes(sol: pd.Series):
+    """
+    Returns nonzero fluxes from a pandas series
+    """
+    mask = sol.fluxes.to_numpy().nonzero()
+    return sol.fluxes.iloc[mask]
 
 
 def get_reactions_producing_met(model, met_id):
@@ -146,6 +158,181 @@ def get_nutrients_gradient(model, nutrients=None, upper_bound=None, step=None) -
 
     return df
 
+
+def mapNamespaceWithModelSEEDDatabase(seed_compounds: List[str], path_to_modelSEEDDatabase: str, annotations_to_keep=['BiGG', 'BiGG1']):
+    """
+    This function makes use of the ModelSEEDpy and the ModelSEEDDatabase libraries to map a list of ModelSEED compounds
+    to their annotations returning a pandas dataframe with those
+
+    seed_compouds -- a list with seed compound ids
+    path_to_modelSEEDDatabase -- path to the modelSEEDDatabase. To get it: git clone https://github.com/ModelSEED/ModelSEEDDatabase.git
+    """
+    from modelseedpy.biochem import from_local
+    import gc  ## gc (garbage collection) module to force garbage collection.
+
+    if path_to_modelSEEDDatabase is None:
+        raise ValueError("path_to_modelSEEDdatabase is required.")
+    try:
+        modelseed_local = from_local(path_to_modelSEEDDatabase)
+    except:
+        raise ValueError("The modelSEEDDatabase provided was not correct. Please give correct path. For example: /Users/workspace/data/ModelSEEDDatabase/")
+    dic = {}
+    for medium_seed_met in seed_compounds:
+        for met in modelseed_local.compounds:
+            if met.id == medium_seed_met:
+                found_annotations = {bigg: (bigg in met.annotation) for bigg in annotations_to_keep}
+                if any(found_annotations.values()):
+                    tmp = {annotation: met.annotation[annotation] if found else None for annotation, found in found_annotations.items()}
+                    dic[medium_seed_met] = tmp
+                else:
+                    dic[medium_seed_met] = None
+                break
+    for key, value in dic.items():
+        if value is None:
+            dic[key] = {}
+        for subkey in annotations_to_keep:
+            dic[key].setdefault(subkey, None)
+    t = pd.DataFrame.from_dict(dic, orient="index")
+    df = t.applymap(_convert_single_element_set)
+    del modelseed_local
+    gc.collect()
+    return df
+
+
+def map2namespace(compounds, from_namespace="seed", to_namespace="bigg"):
+    """
+    compounds -- a list
+    from_namesapce --
+    to_namespace --
+    """
+    seed2metanex = pd.read_json(SEED2MNX)
+    bigg2metanex = pd.read_json(BIGG2MNX)
+    if from_namespace == "seed":
+        seed_metanex = seed2metanex.loc[compounds].to_dict()["metanex_id"]
+        metanex_ids = list(set(seed_metanex.values()))
+        bigg_metanex = bigg2metanex[bigg2metanex["metanex_id"].isin(metanex_ids)]
+        bigg_metanex = bigg_metanex["metanex_id"].to_dict()
+        mapped_dict = {
+            seed_key: next((bigg_key for bigg_key, bigg_value in bigg_metanex.items() if bigg_value == seed_value), None)
+            for seed_key, seed_value in seed_metanex.items()
+        }
+        data_for_df = {'seed_metanex': list(mapped_dict.keys()), 'bigg_metanex': list(mapped_dict.values())}
+    elif from_namespace == "bigg":
+        bigg_metanex = bigg2metanex.loc[compounds].to_dict()["metanex_id"]
+        metanex_ids = list(set(seed_metanex.values()))
+        seed_metanex = seed2metanex[seed2metanex["metanex_id"].isin(metanex_ids)]
+        seed_metanex = seed_metanex["metanex_id"].to_dict()
+        mapped_dict = {
+            bigg_key: next((seed_key for seed_key, seed_value in seed_metanex.items() if seed_value == bigg_value), None)
+            for bigg_key, bigg_value in bigg_metanex.items()
+        }
+        data_for_df = {'bigg_metanex': list(mapped_dict.keys()), 'seed_metanex': list(mapped_dict.values())}
+    df = pd.DataFrame(data_for_df)
+    return df
+
+
+# %% Util functions: flux analysis
+def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, exclude_biomass=True, format="csv"):
+
+    if format=="csv":
+        df = pd.read_csv(qfca_output, index_col=0)
+    elif format=="xlsx":
+        df = pd.read_excel(qfca_output, index_col=0)
+
+    # Create a graphimport networkx as nx
+    G = nx.Graph()
+
+    # Add nodes
+    G.add_nodes_from(df.index)
+
+    # Add edges based on the values in the dataframe
+    biomass_reaction = str(model.objective.expression).split()[0].split("*")[-1]
+    for source in df.index:
+        if exclude_biomass:
+            if source == biomass_reaction:
+                continue
+        for target in df.index:
+            if exclude_biomass:
+                if target == biomass_reaction:
+                    continue
+            value = df.loc[source, target]
+            if source != target and value != 0:  # Ignore cases where i = j or value is 0
+                color = {1: 'black', 2: 'blue', 3: 'red', 4: 'green'}.get(value, 'gray')
+                """
+                1 - fully coupled reactions
+                2 - partially coupled reactions
+                3 - reaction i is directionally coupled to reaction j - red
+                4 - reaction j is directionally coupled to reaction i - green
+                """
+                G.add_edge(source, target, color=color)
+
+    # Compute the degree of each node
+    node_degrees = dict(G.degree())
+
+    # Create a subgraph with nodes that have non-zero degree
+    subgraph_nodes = [node for node, degree in node_degrees.items() if degree > 0]
+
+    # Remove routes that include exchange reactions
+    if model is not None and remove_exchange_routes:
+        exchange_reactions = []
+        for r in model.reactions:
+            if 'e' in r.compartments or 'e0' in r.compartments:
+                exchange_reactions.append(r.id)
+        tmp = subgraph_nodes.copy()
+        for node in tmp:
+            if node in exchange_reactions:
+                subgraph_nodes.remove(node)
+
+    # Build a graph based on the subgraph nodes
+    qfca_graph = G.subgraph(subgraph_nodes)
+
+    if model:
+        # graph's nodes are reactions, we ll add model name and stoichiometry as attributes
+        for node in qfca_graph.nodes:
+            r = model.reactions.get_by_id(node)
+            reactants = [i.name for i in r.reactants]
+            products = [i.name for i in r.products]
+            qfca_graph.nodes[node]['rxn_name'] = r.name
+            qfca_graph.nodes[node]['rxn_reactants'] = ';'.join(reactants)
+            qfca_graph.nodes[node]['rxn_products'] = ';'.join(products)
+
+    return qfca_graph
+
+
+def samples_on_qfca(qfca_graph, samples):
+    from sklearn.metrics import silhouette_score
+
+    from sklearn.cluster import KMeans
+    from sklearn import metrics
+
+
+    graph_rxns = list(qfca_graph.nodes)
+    # df = np.zeros( [len(list(qfca_graph.nodes)), samples.shape[1] ])
+    samples_with_graph_rnxs = samples.loc[graph_rxns]
+
+
+    # Assuming df is your DataFrame containing continuous values
+
+    # Initialize a list to store inertias
+    inertias = []
+
+    # Define the range of k values you want to test
+    k_range = range(1, 11)  # You can adjust this range as needed
+
+    # Calculate inertia for each k
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k)
+        kmeans.fit(samples_with_graph_rnxs)
+        inertias.append(kmeans.inertia_)
+
+
+# plt.plot(k_range, silhouette_scores, marker='o')
+# plt.xlabel('Number of clusters (k)')
+# plt.ylabel('Silhouette Score')
+# plt.title('Silhouette Score for Optimal k')
+# plt.show()
+
+# %% Util classes
 
 class Models:
     """
@@ -392,4 +579,5 @@ class CompareModels:
         # self.unique_reactions_model2 =
         # self.unique_metabolites_model1 =
         # self.unique_metabolites_model2 =
+
 
