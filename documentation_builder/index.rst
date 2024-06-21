@@ -1,4 +1,4 @@
-Documentation for `fluxpy`
+Documentation for fluxpy
 =========================
 
 For installation instructions, please see 
@@ -8,7 +8,7 @@ For installation instructions, please see
     :maxdepth: 2
 
     getting_started
-    API </autoapi/cobra/index.rst>
+    API </autoapi/fluxpy/index.rst>
 
 
 Indices and tables

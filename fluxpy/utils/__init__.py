@@ -16,5 +16,3 @@ from .utils import (
 )
 
 from .format import convert_gbk_to_faa
-
-__all__ = [name for name in dir() if not name.startswith('_')]

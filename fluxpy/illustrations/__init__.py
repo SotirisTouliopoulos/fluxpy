@@ -5,5 +5,5 @@ from .illustrations import(
     plot_ranging_medium_compounds,
     plot_nutrients_gradient,
     qcfa_subgraphs,
-    flux_cone_example,
+    flux_cone_example
 )
