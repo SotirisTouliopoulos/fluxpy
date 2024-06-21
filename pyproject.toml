@@ -14,6 +14,8 @@ pandas = "^2.2.2"
 scipy = "^1.13.0"
 mergem = "v1.1.0"
 cobra = "0.29.0"
+networkx = "2.8.8"
+dash = "^2.17.0"
 
 
 [build-system]
