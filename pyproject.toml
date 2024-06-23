@@ -20,6 +20,7 @@ dash-cytoscape = "^1.0.1"
 nbsphinx = "^0.9.4"
 furo = "^2024.5.6"
 sphinx-autoapi = "^3.1.2"
+ndex2 = "^3.9.0"
 
 
 [build-system]

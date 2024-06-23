@@ -1,5 +1,6 @@
 """Functionalities to visualize findings of various types of metabolic modeling analysis"""
 
+import json
 import math
 import numpy as np
 import pandas as pd
@@ -233,13 +234,14 @@ def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=
 # """
 # Coupling Analysis
 # """
-def qcfa_subgraphs(H):
+def qcfa_subgraphs(H, save_cx2=False):
     """
     Creates and runs a Dash application to visualize the QCFA subgraphs using a network graph.
 
     Args:
         H (networkx.Graph): A NetworkX graph where nodes represent reactions and edges represent relationships between them.
                             The edge colors denote different types of couplings.
+        save_cx2:
 
     Returns:
         A Dash application visualizing the QFCA-oriented graph.
@@ -265,7 +267,6 @@ def qcfa_subgraphs(H):
             directed_edges_selector += "#"+edge['data']['id']+', '
 
     directed_edges_selector = directed_edges_selector[:-2]
-
     legend_layout = html.Div([
         html.H3("Edge Legend"),
         html.Ul([
@@ -284,11 +285,7 @@ def qcfa_subgraphs(H):
 
         ])
     ])
-
-
-    app.layout = html.Div([
-        legend_layout,
-        cyto.Cytoscape(
+    dash_graph = cyto.Cytoscape(
             id='network-graph',
             style={'width': '100%', 'height': '100vh'},
             elements=elements,
@@ -346,10 +343,17 @@ def qcfa_subgraphs(H):
                 'name': 'cose'
             },
         )
+
+    # Set the Dash app content
+    app.layout = html.Div([
+        legend_layout,
+        dash_graph
     ])
 
     # Run the app
     app.run_server(debug=True)
+
+    return dash_graph
 
 
 """
@@ -429,3 +433,58 @@ def _generate_points_inside_cone(n_points, radius, height):
     z_inside = z[valid_indices]
 
     return x_inside, y_inside, z_inside
+
+
+
+def _convert_dash_cytoscape_to_cx2(dash_graph):
+    """
+    Exports the dast cytoscape graph from the qfca analysis to a .cx2 file so it can be loaded to Cytoscape Desktop.
+
+    Args:
+        dash_graph(cyto.Cytoscape): as cosntructed by the qcfa_subgraphs()
+
+    Returns:
+        The qfca analysis graph in .cx2 format
+
+    """
+    from ndex2.cx2 import PandasDataFrameToCX2NetworkFactory
+
+    dash_json = dash_graph.to_plotly_json()
+    props = dash_json['props']
+    elements = props['elements']
+
+    edges = [x for x in elements if 'source' in x['data']]
+
+    dic_to_cx = {}
+    dic_to_cx['source'] = []
+    dic_to_cx['target'] = []
+    dic_to_cx['shared name'] = []
+    dic_to_cx['class'] = []
+
+    for edge in edges:
+        dic_to_cx['source'].append(edge['data']['source'])
+        dic_to_cx['target'].append(edge['data']['target'])
+        dic_to_cx['class'].append(edge['classes'])
+        dic_to_cx['shared name'].append("".join([edge['data']['target'], '(with)', edge['data']['source']]))
+
+    # Creating an instance of PandasDataFrameToCX2NetworkFactory
+    df = pd.DataFrame(dic_to_cx)
+    factory = PandasDataFrameToCX2NetworkFactory()
+
+    # Converting DataFrame to CX2Network
+    cx2_network = factory.get_cx2network(df, source_field='source', target_field='target')
+    cx2_network.add_network_attribute('name', 'my cx2 network')
+    with open("style_qfca.json", "r") as f:
+        vis_prop = json.load(f)
+
+    for _, edge in cx2_network.get_edges().items():
+        cx2_network.add_edge_attribute(edge['id'],  key='class',
+                                    value=edge['v']['class'],
+                                    datatype='string')
+
+    cx2_network.set_visual_properties(vis_prop)
+
+    with open("/home/luna.kuleuven.be/u0156635/Desktop/testdashDFun.cx2", "w") as f:
+        json.dump(cx2_network.to_cx2(), f)
+
+    return cx2_network.to_cx2()
