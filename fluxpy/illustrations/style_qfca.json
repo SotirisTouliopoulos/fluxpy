@@ -3,7 +3,7 @@
         "edge": {
             "EDGE_SOURCE_ARROW_SIZE": 6.0,
             "EDGE_LABEL_OPACITY": 1.0,
-            "EDGE_TARGET_ARROW_SHAPE": "Delta",
+            "EDGE_TARGET_ARROW_SHAPE": "none",
             "EDGE_WIDTH": 2.0,
             "EDGE_SOURCE_ARROW_SHAPE": "none",
             "EDGE_Z_ORDER": 0.0,
@@ -74,6 +74,30 @@
         }
     },
     "edgeMapping": {
+        "EDGE_TARGET_ARROW_SHAPE": {
+            "type": "DISCRETE",
+            "definition": {
+                "map": [
+                    {
+                        "v": "blue triangle",
+                        "vp": "triangle"
+                    },
+                    {
+                        "v": "black",
+                        "vp": "none"
+                    },
+                    {
+                        "v": "green triangle",
+                        "vp": "triangle"
+                    },
+                    {
+                        "v": "red triangle",
+                        "vp": "triangle"
+                    }
+                ],
+                "attribute": "class"
+            }
+        },
         "EDGE_LINE_COLOR": {
             "type": "DISCRETE",
             "definition": {

@@ -69,3 +69,4 @@ BIGG_BUILDING_BLOCLS = ['ala_L[c]', 'asp_L[c]', ' gln_L[c]', 'glu_L[c]', 'glu_L[
 MODELSEED_COFACTORS = []
 
 
+QFCA_STYLE = os.path.join(root_folder, "fluxpy/illustrations/style_qfca.json")

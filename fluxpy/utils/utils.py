@@ -17,7 +17,7 @@ from ..constants import *
 NestedDataFrameType = pd.DataFrame
 all_namespaces = ["chebi", "metacyc", "kegg", "reactome", "metanetx", "hmdb", "biocyc", "bigg", "seed", "sabiork", "rhea"]
 
-class _conversions(Enum):
+class _Conversions(Enum):
     REACTION_NAMES = "reactionNames"
     REACTION_IDS = "reactionIds"
     METABOLITE_NAMES = "metaboliteNames"
@@ -162,7 +162,7 @@ def get_nutrients_gradient(model, nutrients=None, upper_bound=None, step=None) -
     return df
 
 
-def mapNamespaceWithModelSEEDDatabase(seed_compounds: List[str], path_to_modelSEEDDatabase: str, annotations_to_keep=['BiGG', 'BiGG1']):
+def map_namespace_to_ModelSEEDDatabase(seed_compounds: List[str], path_to_modelSEEDDatabase: str, annotations_to_keep=['BiGG', 'BiGG1']):
     """
     This function makes use of the ModelSEEDpy and the ModelSEEDDatabase libraries to map a list of ModelSEED compounds
     to their annotations returning a pandas dataframe with those
@@ -202,7 +202,7 @@ def mapNamespaceWithModelSEEDDatabase(seed_compounds: List[str], path_to_modelSE
     return df
 
 
-def map2namespace(compounds, from_namespace="seed", to_namespace="bigg"):
+def map_to_namespace(compounds, from_namespace="seed", to_namespace="bigg"):
     """
     compounds -- a list
     from_namesapce --
@@ -235,7 +235,7 @@ def map2namespace(compounds, from_namespace="seed", to_namespace="bigg"):
 
 
 # %% Util functions: flux analysis
-def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, exclude_biomass=True, format="csv"):
+def parse_qfca(qfca_output, model=None, remove_exchange_routes=True, exclude_biomass=True, format="csv"):
     """
     Parses QFCA (Quantitative Fatty Acid Composition Analysis) output data into a networkx graph representation.
 
@@ -260,14 +260,41 @@ def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, excl
     # Add nodes
     G.add_nodes_from(df.index)
 
-    # Add edges based on the values in the dataframe
-    biomass_reaction = str(model.objective.expression).split()[0].split("*")[-1]
+    # # Add edges based on the values in the dataframe
+    # biomass_reaction = str(model.objective.expression).split()[0].split("*")[-1]
+    # for source in df.index:
+    #     if exclude_biomass:
+    #         if source == biomass_reaction:
+    #             continue
+    #     for target in df.index:
+    #         if exclude_biomass:
+    #             if target == biomass_reaction:
+    #                 continue
+    #         value = df.loc[source, target]
+    #         if source != target and value != 0:  # Ignore cases where i = j or value is 0
+    #             color = {1: 'black', 2: 'blue', 3: 'red', 4: 'green'}.get(value, 'gray')
+    #             """
+    #             1 - fully coupled reactions
+    #             2 - partially coupled reactions
+    #             3 - reaction i is directionally coupled to reaction j - red
+    #             4 - reaction j is directionally coupled to reaction i - green
+    #             """
+    #             G.add_edge(source, target, color=color)
+
+    biomass_reaction = None
+
+    # Check if model is provided and get biomass_reaction if possible
+    if model is not None and model.objective is not None:
+        biomass_reaction_expression = str(model.objective.expression)
+        if '*' in biomass_reaction_expression:
+            biomass_reaction = biomass_reaction_expression.split('*')[-1]
+
     for source in df.index:
-        if exclude_biomass:
+        if model is not None and exclude_biomass and biomass_reaction is not None:
             if source == biomass_reaction:
                 continue
         for target in df.index:
-            if exclude_biomass:
+            if model is not None and exclude_biomass and biomass_reaction is not None:
                 if target == biomass_reaction:
                     continue
             value = df.loc[source, target]
@@ -280,6 +307,8 @@ def parse_qfca_output(qfca_output, model=None, remove_exchange_routes=True, excl
                 4 - reaction j is directionally coupled to reaction i - green
                 """
                 G.add_edge(source, target, color=color)
+
+
 
     # Compute the degree of each node
     node_degrees = dict(G.degree())
@@ -372,9 +401,9 @@ class NameIdConverter:
     def __init__(self, model, df: pd.DataFrame, convert: str, to: str, init_only=False):
 
         try:
-            convert, to = _conversions(convert), _conversions(to)
+            convert, to = _Conversions(convert), _Conversions(to)
         except:
-            raise ValueError(f"Both convert and to need to be among {[x.value for x in _conversions.mro()]}")
+            raise ValueError(f"Both convert and to need to be among {[x.value for x in _Conversions.mro()]}")
 
         met_map_df = pd.DataFrame([(met.id, met.name) for met in model.metabolites], columns=["id", "name"])
         react_map_df = pd.DataFrame([(react.id, react.name) for react in model.reactions], columns=["id", "name"])

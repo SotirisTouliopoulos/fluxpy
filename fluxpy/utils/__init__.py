@@ -5,9 +5,9 @@ from .utils import (
     nonzero_fluxes,
     get_reactions_producing_met,
     get_nutrients_gradient,
-    mapNamespaceWithModelSEEDDatabase,
-    map2namespace,
-    parse_qfca_output,
+    map_namespace_to_ModelSEEDDatabase,
+    map_to_namespace,
+    parse_qfca,
     samples_on_qfca,
     # Import classes
     Models,

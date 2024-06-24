@@ -5,6 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import networkx as nx
+from typing import Optional, Dict, Any
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -12,6 +13,8 @@ from dash import Dash, html
 import dash_cytoscape as cyto
 import plotly.graph_objs as go
 from ..constants import *
+from dataclasses import dataclass
+
 
 # """
 # Envelope analysis
@@ -225,26 +228,24 @@ def plot_nutrients_gradient(gradient, nutrients=None, threshold=0.2, width_size=
     return all_min_dfs, all_max_dfs
 
 
-# give a list of metabolites
-# give their production/consumption based on experiments
-# give thei sampling means, fba, fva something value
-# compare in silico predictions against experiments
-
-
 # """
 # Coupling Analysis
 # """
-def qcfa_subgraphs(H, save_cx2=False):
+def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path="qfca_graph.cx2"):
     """
     Creates and runs a Dash application to visualize the QCFA subgraphs using a network graph.
 
     Args:
-        H (networkx.Graph): A NetworkX graph where nodes represent reactions and edges represent relationships between them.
+        H (networkx.Graph, mandatory): A NetworkX graph where nodes represent reactions and edges represent relationships between them.
                             The edge colors denote different types of couplings.
-        save_cx2:
+        save_cx2 (boolean, optional): Export dash cytoscape to a .cx2 format and save it as a file that can be then loaded in Cytoscape Desktop
+        cx2_output_path (string, optional): Path and output filename for the .cx2 file
 
     Returns:
-        A Dash application visualizing the QFCA-oriented graph.
+        An _ExportedGraph object with either a dash Cytoscape graph or both a dash Cytoscape and a .cx2 formatted graph with the QFCA-oriented graph.
+        To access each:
+            _ExportedGraph.dash_graph
+            _ExportedGraph.cx2_graph
     """
     # Create Dash app
     app = Dash(__name__)
@@ -253,11 +254,16 @@ def qcfa_subgraphs(H, save_cx2=False):
     pos = nx.random_layout(H, seed=666)  # positions for all nodes
 
     # Define the layout of the app
-    nodes = [{'data': {'id': node, 'label': node}, 'position': {'x': pos[node][0], 'y': pos[node][1]}} for node in H.nodes()]
+    nodes = [
+        {'data': {'id': node, 'label': node}, 'position': {'x': pos[node][0], 'y': pos[node][1]}}
+        for node in H.nodes()
+    ]
     edge_id_counter=0
-    edges = [{'data': {'id': f"edge_{edge_id_counter + i}", 'source': u, 'target': v}, 'classes': H[u][v]['color']} for i, (u, v) in enumerate(H.edges())]
+    edges = [
+        {'data': {'id': f"edge_{edge_id_counter + i}", 'source': u, 'target': v}, 'classes': H[u][v]['color']}
+        for i, (u, v) in enumerate(H.edges())
+    ]
     elements = nodes + edges
-
     directed_edges_selector = ""
     for edge in edges:
         u = edge['data']['source']
@@ -351,10 +357,20 @@ def qcfa_subgraphs(H, save_cx2=False):
     ])
 
     # Run the app
-    app.run_server(debug=True)
+    if run_app:
+        app.run_server(debug=True)
 
-    return dash_graph
+    # Export graph to cx2 format
+    cx2_graph = None
+    if save_cx2:
+        if len(H.nodes[list(H.nodes())[0]])> 0:
+            cx2_graph = _convert_dash_cytoscape_to_cx2(dash_graph, H)
+        else:
+            cx2_graph = _convert_dash_cytoscape_to_cx2(dash_graph)
+        with open(cx2_output_path, "w") as f:
+            json.dump(cx2_graph, f)
 
+    return _ExportedGraph(dash_graph=dash_graph, cx2_graph=cx2_graph)
 
 """
 Sampling analysis
@@ -410,9 +426,9 @@ def _generate_points_inside_cone(n_points, radius, height):
     Generates random points inside a cone.
 
     Args:
-        n_points (int): Number of random points to generate.
-        radius (float): Radius of the base of the cone.
-        height (float): Height of the cone.
+        n_points (int, mandatory): Number of random points to generate.
+        radius (float, mandatory): Radius of the base of the cone.
+        height (float, mandatory): Height of the cone.
 
     Returns:
         tuple: Three numpy arrays containing the x, y, and z coordinates of the points inside the cone.
@@ -435,13 +451,14 @@ def _generate_points_inside_cone(n_points, radius, height):
     return x_inside, y_inside, z_inside
 
 
-
-def _convert_dash_cytoscape_to_cx2(dash_graph):
+def _convert_dash_cytoscape_to_cx2(dash_graph, nx_graph):
     """
     Exports the dast cytoscape graph from the qfca analysis to a .cx2 file so it can be loaded to Cytoscape Desktop.
 
     Args:
-        dash_graph(cyto.Cytoscape): as cosntructed by the qcfa_subgraphs()
+        dash_graph (cyto.Cytoscape, mandatory): as cosntructed by the qcfa_subgraphs()
+        nx_graph (networx.Graph, optional): in case a model was provided when parsing the QFCA findings, provide the nx graph to assign reactio names,
+                                            reactants and products to the .cx2 format
 
     Returns:
         The qfca analysis graph in .cx2 format
@@ -454,6 +471,7 @@ def _convert_dash_cytoscape_to_cx2(dash_graph):
     elements = props['elements']
 
     edges = [x for x in elements if 'source' in x['data']]
+    nodes = [x for x in elements if 'source' not in x['data']]
 
     dic_to_cx = {}
     dic_to_cx['source'] = []
@@ -473,18 +491,53 @@ def _convert_dash_cytoscape_to_cx2(dash_graph):
 
     # Converting DataFrame to CX2Network
     cx2_network = factory.get_cx2network(df, source_field='source', target_field='target')
-    cx2_network.add_network_attribute('name', 'my cx2 network')
-    with open("style_qfca.json", "r") as f:
+    cx2_network.add_network_attribute('name', 'My cx2 qfca network')
+
+    with open(QFCA_STYLE, "r") as f:
         vis_prop = json.load(f)
 
     for _, edge in cx2_network.get_edges().items():
-        cx2_network.add_edge_attribute(edge['id'],  key='class',
-                                    value=edge['v']['class'],
-                                    datatype='string')
+        cx2_network.add_edge_attribute(
+            edge['id'],
+            key='class',
+            value=edge['v']['class'],
+            datatype='string'
+        )
+
+    # In case a model was provided when parsing qfca findings; see parse_qfca()
+    if nx_graph:
+        for _, node in cx2_network.get_nodes().items():
+
+            cx2_network.add_node_attribute(
+                node['id'],
+                key='rxn_name',
+                value=nx_graph.nodes[node['v']['name']]['rxn_name'],
+                datatype='string'
+            )
+            cx2_network.add_node_attribute(
+                node['id'],
+                key='rxn_reactants',
+                value=nx_graph.nodes[node['v']['name']]['rxn_reactants'],
+                datatype='string'
+            )
+            cx2_network.add_node_attribute(
+                node['id'],
+                key='rxn_products',
+                value=nx_graph.nodes[node['v']['name']]['rxn_products'],
+                datatype='string'
+            )
+
 
     cx2_network.set_visual_properties(vis_prop)
 
-    with open("/home/luna.kuleuven.be/u0156635/Desktop/testdashDFun.cx2", "w") as f:
-        json.dump(cx2_network.to_cx2(), f)
-
     return cx2_network.to_cx2()
+
+@dataclass
+class _ExportedGraph:
+    """
+    Structured way to handle the qfca function's output with a:
+    - dash cytoscape graph object as mandatory
+    - a cx2 formatted graph as optional
+    """
+    dash_graph: Dict[str, Any]
+    cx2_graph: Optional[Dict[str, Any]]
