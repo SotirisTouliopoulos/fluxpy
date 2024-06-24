@@ -129,5 +129,7 @@ intersphinx_mapping = {
     "http://docs.python.org/": None,
     "http://docs.scipy.org/doc/numpy/": None,
     "http://docs.scipy.org/doc/scipy/reference": None,
+    "https://networkx.org/documentation/stable/reference": None,
+    "https://dash.plotly.com/cytoscape/reference": None,
 }
 intersphinx_cache_limit = 10  # days to keep the cached inventories
