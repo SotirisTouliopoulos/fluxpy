@@ -80,7 +80,6 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     # Create a figure
     fig = go.Figure(data=[trace], layout=layout)
 
-
     # Show the plot
     return fig
 
@@ -268,7 +267,12 @@ def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path
     for edge in edges:
         u = edge['data']['source']
         v = edge['data']['target']
-        if H[u][v]['color'] != "black":
+        """
+        Black: fully coupled
+        Blue: partially coupled
+        Red, Green: directionally coupled
+        """
+        if H[u][v]['color'] not in ["black", "blue"]:
             edge['classes'] += " triangle"
             directed_edges_selector += "#"+edge['data']['id']+', '
 
@@ -280,15 +284,14 @@ def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path
                 html.Span("Grey: ", style={'color': 'grey'}), "Fully coupled reactions"
             ]),
             html.Li([
-                html.Span("Light Sea Green: ", style={'color': 'LightSeaGreen'}), "Partially coupled reactions"
+                html.Span("Steel Blue: ", style={'color': 'SteelBlue'}), "Partially coupled reactions"
+            ]),
+            html.Li([
+                html.Span("Light Sea Green: ", style={'color': 'LightSeaGreen'}), "Reaction j is directionally coupled to reaction i"
             ]),
             html.Li([
                 html.Span("Dark Salmon: ", style={'color': 'DarkSalmon'}), "Reaction i is directionally coupled to reaction j"
-            ]),
-            html.Li([
-                html.Span("Steel Blue: ", style={'color': 'SteelBlue'}), "Reaction j is directionally coupled to reaction i"
             ])
-
         ])
     ])
     dash_graph = cyto.Cytoscape(
@@ -307,21 +310,23 @@ def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path
                         'style': {
                             'background-color': 'DarkSalmon',
                             'line-color': 'DarkSalmon',
-                            'target-arrow-shape': 'none'
+                            # 'target-arrow-shape': 'none'
                         }
                     },
                     {
                         'selector': '.green',
                         'style': {
                             'background-color': 'LightSeaGreen',
-                            'line-color': 'LightSeaGreen'
+                            'line-color': 'LightSeaGreen',
+                            # 'target-arrow-shape': 'none'
                         }
                     },
                     {
                         'selector': '.blue',
                         'style': {
                             'background-color': 'SteelBlue',
-                            'line-color': 'SteelBlue'
+                            'line-color': 'SteelBlue',
+                            'target-arrow-shape': 'none'
                         }
                     },
 
@@ -329,7 +334,8 @@ def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path
                         'selector': '.black',
                         'style': {
                             'background-color': 'grey',
-                            'line-color': 'grey'
+                            'line-color': 'grey',
+                            'target-arrow-shape': 'none'
                         }
                     },
 

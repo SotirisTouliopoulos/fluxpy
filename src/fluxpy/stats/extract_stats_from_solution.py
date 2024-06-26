@@ -8,9 +8,9 @@ def slope_in_prod_env(uptake_flux_vector, paused_uptake, objective_flux_vector, 
     """
     Returns the slope of the line connecting the origin of coordinates and the
     point of the highest optimal value at the maximum of an uptake rate.
-    For example, in case of growth rate and glucose, this slope
-    corresponds to the biomass yield on glucose under anaerobic conditions, and in terms of linear
-    programming to the negative of the shadow price.
+    For example, in case of growth rate and glucose,
+    this slope corresponds to the biomass yield on glucose under anaerobic conditions,
+    and in terms of linear programming, to the negative of the shadow price.
 
     Keyword arguments:
     uptake --
@@ -38,6 +38,7 @@ def slope_in_prod_env(uptake_flux_vector, paused_uptake, objective_flux_vector, 
     uptake_flux_vector_valid.reset_index(drop=True, inplace=True)
     paused_uptake_valid = paused_uptake[valid_indices]
     paused_uptake_valid.reset_index(drop=True, inplace=True)
+
     objective_flux_vector_valid = objective_flux_vector[valid_indices]
     objective_flux_vector_valid.reset_index(drop=True, inplace=True)
 

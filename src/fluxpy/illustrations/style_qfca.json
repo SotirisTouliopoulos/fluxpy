@@ -20,7 +20,7 @@
             "EDGE_VISIBILITY": "element",
             "EDGE_LABEL_FONT_SIZE": 10,
             "EDGE_LABEL_COLOR": "#000000",
-            "EDGE_SELECTED_PAINT": "#FF0000",
+            "EDGE_SELECTED_PAINT": "#D81B60",
             "EDGE_STACKING": "AUTO_BEND",
             "EDGE_SELECTED": "false",
             "EDGE_STACKING_DENSITY": 0.5,
@@ -79,8 +79,8 @@
             "definition": {
                 "map": [
                     {
-                        "v": "blue triangle",
-                        "vp": "triangle"
+                        "v": "blue",
+                        "vp": "none"
                     },
                     {
                         "v": "black",
@@ -103,7 +103,7 @@
             "definition": {
                 "map": [
                     {
-                        "v": "blue triangle",
+                        "v": "blue",
                         "vp": "#1E88E5"
                     },
                     {

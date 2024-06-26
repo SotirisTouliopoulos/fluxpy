@@ -1,18 +1,28 @@
 """Provide utilities for metabolic modeling analysis tasks"""
 
 from .utils import (
-    # Import functions
     nonzero_fluxes,
     get_reactions_producing_met,
+)
+
+from .format import convert_gbk_to_faa
+
+
+from .analysis import (
     get_nutrients_gradient,
+    parse_qfca,
+    samples_on_qfca
+)
+
+from .model import (
+
+    # Import functions
     map_namespace_to_ModelSEEDDatabase,
     map_to_namespace,
-    parse_qfca,
-    samples_on_qfca,
+
     # Import classes
     Models,
     NameIdConverter,
     CompareModels
 )
 
-from .format import convert_gbk_to_faa
