@@ -44,3 +44,13 @@ poetry export --without-hashes --format=requirements.txt > requirements.txt
 ```
 
 
+## ReadTheDocs
+
+To test whether the documentation builder will perform online as we would like to, we may run locally the following command:
+
+```bash
+cd documentation_builder/
+sphinx-build -b html -d _build/doctrees -D language=en . _build/html -v
+```
+
+

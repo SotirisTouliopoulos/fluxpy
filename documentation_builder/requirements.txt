@@ -4,3 +4,4 @@ sphinx-autoapi
 nbsphinx>=0.2.4
 ipykernel
 matplotlib>=3.6
+dash_cytoscape

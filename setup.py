@@ -1,9 +1,21 @@
 from setuptools import setup, find_packages
 
+# information about the dingo library
+version = "0.0.1"
+license = ("LGPL3",)
+packages = ["src/fluxpy"]
+description = "A python library for metabolic networks sampling and analysis"
+author = "Haris Zafeiropoulos"
+author_email = "haris.zafeiropoulos@kuleuven.be"
+name = "fluxpy"
+
+
 setup(
     name='fluxpy',
-    version='0.1',
-    packages=find_packages(),
+    version='0.0.1',
+    package_dir={'': 'src'},
+    packages=find_packages(where='src'),
+    # packages=packages,  # find_packages()
     package_data={
         'fluxpy': ['illustrations/*.json'],
     },

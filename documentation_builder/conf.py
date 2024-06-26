@@ -19,7 +19,7 @@ from os.path import dirname, join
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-SRC_PATH = join(dirname(dirname(__file__)))
+SRC_PATH = join(dirname(dirname(__file__)), "src")
 sys.path.insert(0, SRC_PATH)
 
 # -- General configuration ----------------------------------------------------
@@ -126,10 +126,12 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "http://docs.python.org/": None,
-    "http://docs.scipy.org/doc/numpy/": None,
-    "http://docs.scipy.org/doc/scipy/reference": None,
-    "https://networkx.org/documentation/stable/reference": None,
-    "https://dash.plotly.com/cytoscape/reference": None,
+    'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
+    'python': ('http://docs.python.org/', None),
+    'numpy': ("http://docs.scipy.org/doc/numpy/", None),
+    'scipy': ("http://docs.scipy.org/doc/scipy/reference", None),
+    'networkx': ("https://networkx.org/documentation/stable/reference", None),
+    'dash_cytoscape': ("https://dash.plotly.com/cytoscape/reference", None)
 }
+
 intersphinx_cache_limit = 10  # days to keep the cached inventories
