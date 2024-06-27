@@ -2,7 +2,7 @@
 
 from .utils import (
     nonzero_fluxes,
-    get_reactions_producing_met,
+    get_rxns_producing_consuming_met,
 )
 
 from .format import convert_gbk_to_faa

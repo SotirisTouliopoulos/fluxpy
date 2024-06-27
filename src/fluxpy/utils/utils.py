@@ -3,8 +3,7 @@
 import numpy as np
 import pandas as pd
 import cobra
-from typing import Union
-
+from typing import Union, Optional
 from ..constants import *
 
 NestedDataFrameType = pd.DataFrame
@@ -33,7 +32,7 @@ def nonzero_fluxes(fluxes:  Union[cobra.Solution, pd.Series]) -> None:
 
 
 
-def get_reactions_producing_met(model, met_id):
+def get_rxns_producing_consuming_met(met_id, model: cobra.Model = None, flux_vector: pd.Series = None):
     """
     Returns a DataFrame with the reaction IDs of those consuming and producing a given metabolite in a model.
 
@@ -42,17 +41,18 @@ def get_reactions_producing_met(model, met_id):
     in a DataFrame.
 
     Parameters:
-    model (cobra.Model): The metabolic model to be analyzed.
-    met_id (str): The ID of the metabolite of interest.
+    model (cobra.Model, mandatory): The metabolic model to be analyzed.
+    met_id (str, optional): The ID of the metabolite of interest.
+    flux_vector (pd.Series, optional):
 
     Returns:
     pd.DataFrame: A DataFrame with two columns:
-                  - `consuming_{met_id}`: Reactions that consume the specified metabolite.
-                  - `producing_{met_id}`: Reactions that produce the specified metabolite.
+                  - `consuming_{met_id}`: Reactions consuming the specified metabolite in flux vector provided
+                  - `producing_{met_id}`: Reactions producing the specified metabolite in flux vector provided
 
     Examples:
-    >>> from cobra import Model, Reaction, Metabolite
-    >>> model = Model('example_model')
+    >>> import cobra
+    >>> model = cobra.io.read_sbml_model('e_coli_core.xml')
     >>> df = get_reactions_producing_met(model, 'met_id')
     >>> print(df)
          consuming_met_id producing_met_id
@@ -64,8 +64,14 @@ def get_reactions_producing_met(model, met_id):
     - Reactions with a flux greater than 0 are considered to be producing reactants and consuming products in the forward direction.
     - This applies for the specific medium provided with the model
     """
+    if model is None or not isinstance(model, cobra.Model):
+        return TypeError("model needs to be a cobra.Model object.")
 
-    solution = model.optimize()
+    if flux_vector is not None and not isinstance(flux_vector, pd.Series):
+        return TypeError("flux_vector needs to be a pd.Series object.")
+
+    if flux_vector is None:
+        flux_vector = model.optimize()
 
     reactions_of_interest = model.metabolites.get_by_id(met_id).reactions
 
@@ -74,7 +80,7 @@ def get_reactions_producing_met(model, met_id):
 
     for reaction in reactions_of_interest:
 
-        if solution[reaction.id] < 0:
+        if flux_vector[reaction.id] < 0:
 
             for reactant in reaction.reactants:
                 if met_id == reactant.id:
@@ -86,8 +92,7 @@ def get_reactions_producing_met(model, met_id):
                     reactions_consuming_met.append(reaction)
                     break
 
-
-        if solution[reaction.id] > 0:
+        if flux_vector[reaction.id] > 0:
 
             for reactant in reaction.reactants:
                 if met_id == reactant.id:
@@ -98,9 +103,13 @@ def get_reactions_producing_met(model, met_id):
                     reactions_producing_met.append(reaction)
                     break
 
-    df = pd.DataFrame({'consuming_{met_id}': reactions_consuming_met, 'producing_{met_id}': reactions_producing_met})
-
-    return df
+    cons_df = pd.DataFrame({
+        f'consuming {met_id}': reactions_consuming_met,
+    })
+    prod_df = pd.DataFrame({
+        f'producing {met_id}': reactions_producing_met
+    })
+    return (cons_df, prod_df)
 
 
 """
