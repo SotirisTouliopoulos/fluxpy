@@ -17,7 +17,7 @@ setup(
     packages=find_packages(where='src'),
     # packages=packages,  # find_packages()
     package_data={
-        'fluxpy': ['illustrations/*.json'],
+        'fluxpy': ['data/*'],  # 'illustrations/*.json'
     },
     description='A set of tools to support metabolic modelling analysis related tasks.',
     author='Haris Zafeiropoulos',

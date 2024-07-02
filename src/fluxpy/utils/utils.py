@@ -17,11 +17,11 @@ def nonzero_fluxes(fluxes:  Union[cobra.Solution, pd.Series]) -> None:
 
     This function takes a pandas Series containing flux values and returns a new Series with only the nonzero fluxes.
 
-    Parameters:
-    sol (pd.Series): A pandas Series representing flux values.
+    Args:
+        sol (pd.Series, mandatory): A pandas Series representing flux values.
 
     Returns:
-    pd.Series: A pandas Series containing only the nonzero flux values from the input Series.
+        pd.Series: A pandas Series containing only the nonzero flux values from the input Series.
     """
     if not isinstance(fluxes, cobra.Solution) and not isinstance(fluxes, pd.Series):
         return ValueError("Provide a cobra.Solution or a pandas.Series element as fluxes.")
@@ -40,29 +40,30 @@ def get_rxns_producing_consuming_met(met_id, model: cobra.Model = None, flux_vec
     It categorizes reactions into those producing and those consuming the metabolite and returns this information
     in a DataFrame.
 
-    Parameters:
-    model (cobra.Model, mandatory): The metabolic model to be analyzed.
-    met_id (str, optional): The ID of the metabolite of interest.
-    flux_vector (pd.Series, optional):
+    Args:
+        model (cobra.Model, mandatory): The metabolic model to be analyzed.
+        met_id (str, optional): The ID of the metabolite of interest.
+        flux_vector (pd.Series, optional):
 
     Returns:
-    pd.DataFrame: A DataFrame with two columns:
-                  - `consuming_{met_id}`: Reactions consuming the specified metabolite in flux vector provided
-                  - `producing_{met_id}`: Reactions producing the specified metabolite in flux vector provided
+        pd.DataFrame: A DataFrame with two columns:
+                    - `consuming_{met_id}`: Reactions consuming the specified metabolite in flux vector provided
+                    - `producing_{met_id}`: Reactions producing the specified metabolite in flux vector provided
 
     Examples:
-    >>> import cobra
-    >>> model = cobra.io.read_sbml_model('e_coli_core.xml')
-    >>> df = get_reactions_producing_met(model, 'met_id')
-    >>> print(df)
-         consuming_met_id producing_met_id
-    0  reaction1          reaction2
+
+        >>> import cobra
+        >>> model = cobra.io.read_sbml_model('e_coli_core.xml')
+        >>> df = get_reactions_producing_met(model, 'met_id')
+        >>> print(df)
+            consuming_met_id producing_met_id
+        0  reaction1          reaction2
 
     Notes:
-    - The function assumes the model is properly optimized and that each reaction's flux can be accessed via the solution object.
-    - Reactions with a flux less than 0 are considered to be consuming reactants and producing products in the reverse direction.
-    - Reactions with a flux greater than 0 are considered to be producing reactants and consuming products in the forward direction.
-    - This applies for the specific medium provided with the model
+        - The function assumes the model is properly optimized and that each reaction's flux can be accessed via the solution object.
+        - Reactions with a flux less than 0 are considered to be consuming reactants and producing products in the reverse direction.
+        - Reactions with a flux greater than 0 are considered to be producing reactants and consuming products in the forward direction.
+        - This applies for the specific medium provided with the model
     """
     if model is None or not isinstance(model, cobra.Model):
         return TypeError("model needs to be a cobra.Model object.")

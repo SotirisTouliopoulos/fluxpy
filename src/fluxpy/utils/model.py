@@ -3,9 +3,8 @@
 import cobra
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Dict
 from enum import Enum
-from typing import List
 from mergem import merge
 from ..constants import *
 from .utils import _convert_list_to_binary, _convert_single_element_set
@@ -18,9 +17,6 @@ class _Conversions(Enum):
     REACTION_IDS = "reactionIds"
     METABOLITE_NAMES = "metaboliteNames"
     METABOLITE_IDS = "metaboliteIds"
-
-
-
 
 # %% Util classes
 
@@ -40,12 +36,14 @@ class NameIdConverter:
     A class to switch indexes of a dataframe from ids to names and vice versa for metabolites and reactions of a model.
 
     """
-    def __init__(self, model, to_convert: pd.DataFrame, convert: str, to: str, init_only=False):
+    def __init__(self, model, to_convert: pd.DataFrame, convert: str, to: str):
         """
-        model -- a cobra model
-        to_convert -- pandas dataframe to which the conversion will be applied
-        convert -- current namespace of the df; values from ['reactionNames', reactionIds, 'metaboliteNames', 'metaboliteIds']
-        to -- namespace to switch to; values as in `convert`
+        Args:
+            model (cobra.Model, mandatory):
+            to_convert (pd.DataFrame, mandatory): a pandas dataframe to which the conversion will be applied to
+            convert (str, mandatory): current namespace of the df; values from ['reactionNames', reactionIds, 'metaboliteNames', 'metaboliteIds']
+            to (str, mandatory): namespace to switch to; values as in `convert`
+
         """
 
         try:
@@ -68,11 +66,8 @@ class NameIdConverter:
             df = pd.DataFrame(to_convert)
             self.to_convert = df.copy()
         self.isIndex = isinstance(to_convert, pd.Index)
-        if not init_only:
-            self._run_convert()
 
-
-    def _run_convert(self):
+    def run_convert(self):
 
         convert_cases = {
             (self.convert.REACTION_NAMES.value,   self.to.REACTION_IDS.value): self._react_names_to_react_ids,
@@ -90,7 +85,7 @@ class NameIdConverter:
             raise ValueError("Invalid combination of convert and to values")
 
         self.to_convert = s
-        return self.to_convert
+        return s
 
 
     def _met_ids_to_met_names(self):
@@ -279,8 +274,7 @@ class CompareModels:
         # self.unique_metabolites_model2 =
 
 
-
-
+# %% Util functions
 def map_namespace_to_ModelSEEDDatabase(seed_compounds: List[str], path_to_modelSEEDDatabase: str, annotations_to_keep=['BiGG', 'BiGG1']):
     """
     This function makes use of the ModelSEEDpy and the ModelSEEDDatabase libraries to map a list of ModelSEED compounds
@@ -353,25 +347,20 @@ def map_to_namespace(compounds, from_namespace="seed", to_namespace="bigg"):
     return df
 
 
+def track_metabolite_pathways(metabolite,
+                         bigg_model,
+                         BIGG_COFACTORS,
+                         _visited_metabolites=None,
+                         _inner_reactions=None):
+    """
+    Returns pathways that are initiated from a nutrient.
 
-
-
-
-def _perform_recursive(in_met, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions):
-    # Check if metabolite is not in BIGG_COFACTORS and not visited
-    if (
-        in_met.id not in BIGG_COFACTORS and
-        in_met.id not in visited_metabolites
-    ):
-        print(">>", in_met.id, "from", reaction.build_reaction_string())
-        # Recursively find inner reactions for this metabolite
-        find_inner_reactions(in_met, bigg_model,
-                            visited_metabolites, BIGG_COFACTORS, inner_reactions)
-
-def find_inner_reactions(metabolite, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions):
+    """
+    _inner_reactions = _inner_reactions if _inner_reactions is not None else set()
+    _visited_metabolites = _visited_metabolites if _visited_metabolites is not None else set()
 
     # Mark metabolite as visited
-    visited_metabolites.add(metabolite.id)
+    _visited_metabolites.add(metabolite.id)
 
     reactions_with_the_met = bigg_model.metabolites.get_by_id(metabolite.id).reactions
     has_irreversible_reaction = any(not reaction.reversibility for reaction in reactions_with_the_met)
@@ -379,15 +368,15 @@ def find_inner_reactions(metabolite, bigg_model, visited_metabolites, BIGG_COFAC
     # Check reactions involving this metabolite
     for reaction in reactions_with_the_met:
 
-        # Add reaction to inner_reactions if it's not already there
-        if reaction not in inner_reactions:
-            inner_reactions.add(reaction)
+        # Add reaction to _inner_reactions if it's not already there
+        if reaction not in _inner_reactions:
+            _inner_reactions.add(reaction)
 
             # Traverse through metabolites in the reaction
             if not reaction.reversibility:
                 if metabolite in reaction.reactants:
                     for in_metabolite in reaction.products:
-                        _perform_recursive(in_metabolite, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions)
+                        _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
 
                 else:
                     print("metabolite:", metabolite.id, " not as reactant in:", reaction.build_reaction_string())
@@ -396,7 +385,88 @@ def find_inner_reactions(metabolite, bigg_model, visited_metabolites, BIGG_COFAC
                 if len(reactions_with_the_met) == 1 or has_irreversible_reaction is False:
                     if metabolite in reaction.reactants:
                         for in_metabolite in reaction.products:
-                            _perform_recursive(in_metabolite, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions)
+                            _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
                     else:
                         for in_metabolite in reaction.reactants:
-                            _perform_recursive(in_metabolite, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions)
+                            _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
+
+
+def sync_with_medium(model: cobra.Model, medium: Dict):
+    """
+    Adds metabolites and reactions required to allow a medium to be assigned to a cobra.Model
+
+    Args:
+        model (cobra.Model, mandatory): model to which the new medium will be assigned to and to which metabolites and reactions will be added to
+        medium (Dict, mandatory): a dictionary with the medium to be used with the metabolites as keys and their boundaries as values
+
+    Returns:
+        A cobra.Model with added metabolites and reactions to enable medium to be used
+
+    """
+    if not isinstance(model, cobra.Model) or not isinstance(medium, Dict):
+        return TypeError("")
+    try:
+        model.medium = medium
+        return "The cobra model is already capable of supporting this medium."
+    except:
+        pass
+    # Check if model is using ModelSEED ontology
+    if not _check_if_modelseed_model:
+        return "Currently, cobra.Model needs to use ModelSEED ontology."
+    complete_model = cobra.io.read_sbml_model(COMPLETE_MODEL)
+    rxns_to_add = set()
+    user_model_exchange_ids = [x.id for x in model.exchanges]
+    suggested_medium = {}
+    for ex_react in medium:
+        edit_ex_react = ex_react
+        if edit_ex_react.startswith("cpd"):
+            edit_ex_react = "EX_" + edit_ex_react
+        if not edit_ex_react.endswith("e0"):
+            edit_ex_react = edit_ex_react + "_e0"
+        if edit_ex_react not in user_model_exchange_ids:
+            try:
+                rxn_to_add = complete_model.reactions.get_by_id(edit_ex_react)
+                rxns_to_add.add(rxn_to_add)
+                suggested_medium[edit_ex_react] = medium[ex_react]
+            except:
+                print("Reaction", ex_react,
+                      "is not part of the complete model and most likely has not related reactions or it is obsolete. \
+                      We suggest to remove it from your medium."
+                )
+                pass
+        else:
+            suggested_medium[edit_ex_react] = medium[ex_react]
+
+    rxns_to_add = list(rxns_to_add)
+    model.add_reactions(rxns_to_add)
+
+    return (model, suggested_medium)
+
+
+
+
+
+
+
+"""
+Inner routines
+"""
+def _perform_recursive(in_met, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions):
+    # Check if metabolite is not in BIGG_COFACTORS and not visited
+    if (
+        in_met.id not in BIGG_COFACTORS and
+        in_met.id not in visited_metabolites
+    ):
+        print(">>", in_met.id, "from", reaction.build_reaction_string())
+        # Recursively find inner reactions for this metabolite
+        track_metabolite_pathways(
+            in_met,
+            bigg_model,
+            BIGG_COFACTORS,
+            visited_metabolites, inner_reactions
+        )
+
+
+def _check_if_modelseed_model(model: cobra.Model):
+    return model.metabolites[0].id.startswith("cpd")
+
