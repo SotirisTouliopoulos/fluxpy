@@ -154,13 +154,13 @@ files = [
 
 [[package]]
 name = "certifi"
-version = "2024.2.2"
+version = "2024.7.4"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "certifi-2024.2.2-py3-none-any.whl", hash = "sha256:dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"},
-    {file = "certifi-2024.2.2.tar.gz", hash = "sha256:0569859f95fc761b18b45ef421b1290a0f65f147e92a1e5eb3e635f9a5e4e66f"},
+    {file = "certifi-2024.7.4-py3-none-any.whl", hash = "sha256:c198e21b1289c2ab85ee4e67bb4b4ef3ead0892059901a8d5b622f24a1101e90"},
+    {file = "certifi-2024.7.4.tar.gz", hash = "sha256:5a1e7645bc0ec61a09e26c36f6106dd4cf40c6db3a1fb6352b0244e7fb057c7b"},
 ]
 
 [[package]]
@@ -1975,6 +1975,7 @@ description = "LibSBML Python API"
 optional = false
 python-versions = "*"
 files = [
+    {file = "python-libsbml-5.20.2.tar.gz", hash = "sha256:0af5cbff68c9b52bac4bd7bb261f93a60832dc8cb31dafc90d3aff51467935b7"},
     {file = "python_libsbml-5.20.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:11cb3b9a96d3438f6600d2f0900506dc86fcf2c6cadef5d401c8b9886abbb3ae"},
     {file = "python_libsbml-5.20.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:646548461e71b3aaf0871fef75cca2c04e45a7e16225d2ab43b60ab4a6502b9a"},
     {file = "python_libsbml-5.20.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4b02dbe1f314de55b07e52e557311fe0f2556cee66d3e5ee7ca4c4e13c41eee1"},
@@ -1993,7 +1994,15 @@ files = [
     {file = "python_libsbml-5.20.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:420035cf2ea56ba2e8b932225b64742127856c33158c18fd80760bd1be85178a"},
     {file = "python_libsbml-5.20.2-cp311-cp311-win32.whl", hash = "sha256:f93b067631f5796f845716d052efc386a016512521651fa10d735d0a1f4f27fb"},
     {file = "python_libsbml-5.20.2-cp311-cp311-win_amd64.whl", hash = "sha256:286e513c4d43fe7c27767bfd73a4c3351e3969968c0e7a6e7fcd15d006836007"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:d472f9fdee5388ce2784918d1e84c22fc144beb151e98b7d257a80dfc2cd4d40"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6af51e8a4dab9b867d4fb0cce500d5a058fb44a58d3667d57a435f5c82ad1272"},
     {file = "python_libsbml-5.20.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:667bd753bf1786c50d79ff21c9a45a993788ab7045e6c05032bc3b5e5b97997c"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a9bfc2fed842ac4c19066e123b9441c1e45f7f5193edcaf7678520a2a154a29b"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b17e6d9dd396cedaa41970d291a5203cf67e500dbfd050f535618a3fdaa11551"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:c5e7b0ec46ae9a8145f4bb90e8c1a627e374cbd5675ec0b9ce8727a30e3efd36"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:cd29ec307471bdcb489aeae096e19d5606a6b1f0c7fe2faa4b95961884288a48"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-win32.whl", hash = "sha256:1bc28c1078e15063d31b50e65528408019a0e6f553b1e6ead79c3386b8aea328"},
+    {file = "python_libsbml-5.20.2-cp312-cp312-win_amd64.whl", hash = "sha256:d7a4b626dbbb2366e98f726f58bd60904df401dd7abb22aeb45787f9d704e0cb"},
     {file = "python_libsbml-5.20.2-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4959231cefb8abdd05852aab8ad211358e0a03c170c96b266d70ae0ebd2e8cdc"},
     {file = "python_libsbml-5.20.2-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:73608d768527993ecff9877a07dbb8191a61a729c1d1e8f6873aedad3639bba8"},
     {file = "python_libsbml-5.20.2-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b9bc9064e072b89c4e1b2aa54a653e66fe467712a659adea877a33118abdd7fa"},
