@@ -14,7 +14,7 @@ import dash_cytoscape as cyto
 import plotly.graph_objs as go
 from ..constants import *
 from dataclasses import dataclass
-
+import cobra
 
 # """
 # Envelope analysis
@@ -24,25 +24,33 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     This function takes as arguments 3 columns of the cobra production_envelope() result
     to return a 3D scatter plot of those.
 
-    Keyword arguments:
-    v1 -- flux vector for x-axis
-    v2 -- flux vector for y-axis
-    v3 -- flux vector for z-axis which is used for the weight values
+    Args:
 
-    Usage:
-    from cobra.io import load_model
-    model = load_model("textbook")
-    from cobra.flux_analysis import production_envelope
-    prod_env = production_envelope(model, ["EX_glc__D_e", "EX_o2_e"])
-    prod_env.head(3)
-    carbon_source	flux_minimum	carbon_yield_minimum	mass_yield_minimum	flux_maximum	carbon_yield_maximum	mass_yield_maximum	EX_glc__D_e	EX_o2_e
-    0	EX_glc__D_e	0.0	0.0	0.0	0.000000	0.000000	0.000000	-10.0	-60.000000
-    1	EX_glc__D_e	0.0	0.0	0.0	1.578947	0.052632	0.051748	-10.0	-56.842105
-    2	EX_glc__D_e	0.0	0.0	0.0	3.157895	0.105263	0.103496	-10.0	-53.684211
+        v1 -- flux vector for x-axis
+        v2 -- flux vector for y-axis
+        v3 -- flux vector for z-axis which is used for the weight values
 
-    x=prod_env['EX_o2_e']
-    y=prod_env['EX_glc__D_e']
-    z=prod_env['flux_maximum']
+    Returns:
+
+        A 3D plolty.Figure object.
+
+    **Usage example:**
+
+    .. code-block:: python
+
+        from cobra.io import load_model
+        model = load_model("textbook")
+        from cobra.flux_analysis import production_envelope
+        prod_env = production_envelope(model, ["EX_glc__D_e", "EX_o2_e"])
+        prod_env.head(3)
+        carbon_source	flux_minimum	carbon_yield_minimum	mass_yield_minimum	flux_maximum	carbon_yield_maximum	mass_yield_maximum	EX_glc__D_e	EX_o2_e
+        0	EX_glc__D_e	0.0	0.0	0.0	0.000000	0.000000	0.000000	-10.0	-60.000000
+        1	EX_glc__D_e	0.0	0.0	0.0	1.578947	0.052632	0.051748	-10.0	-56.842105
+        2	EX_glc__D_e	0.0	0.0	0.0	3.157895	0.105263	0.103496	-10.0	-53.684211
+        x=prod_env['EX_o2_e']
+        y=prod_env['EX_glc__D_e']
+        z=prod_env['flux_maximum']
+
     """
     # Create a trace
     trace = go.Scatter3d(
@@ -84,7 +92,7 @@ def plot_prod_env_3D(v1: pd.Series, v2: pd.Series, v3: pd.Series, width=800, hei
     return fig
 
 
-def plot_ranging_medium_compounds(model, dictionary_with_plots, dpi=500):
+def plot_ranging_medium_compounds(model: cobra.Model, dictionary_with_plots, dpi=500):
     """
     Plots the behavior of medium compounds in a metabolic model across different concentrations.
 
@@ -243,6 +251,8 @@ def qcfa_subgraphs(H: nx.Graph, run_app = False, save_cx2=False, cx2_output_path
     Returns:
         An _ExportedGraph object with either a dash Cytoscape graph or both a dash Cytoscape and a .cx2 formatted graph with the QFCA-oriented graph.
         To access each:
+
+        .. code-block:: python
             _ExportedGraph.dash_graph
             _ExportedGraph.cx2_graph
     """
@@ -462,7 +472,7 @@ def _convert_dash_cytoscape_to_cx2(dash_graph, nx_graph):
     Exports the dast cytoscape graph from the qfca analysis to a .cx2 file so it can be loaded to Cytoscape Desktop.
 
     Args:
-        dash_graph (cyto.Cytoscape, mandatory): as cosntructed by the qcfa_subgraphs()
+        dash_graph (cyto.Cytoscape, mandatory): as cosntructed by the :func:`.parse_qfca`
         nx_graph (networx.Graph, optional): in case a model was provided when parsing the QFCA findings, provide the nx graph to assign reactio names,
                                             reactants and products to the .cx2 format
 

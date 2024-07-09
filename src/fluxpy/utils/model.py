@@ -3,7 +3,7 @@
 import cobra
 import numpy as np
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Union
 from enum import Enum
 from mergem import merge
 from ..constants import *
@@ -36,7 +36,7 @@ class NameIdConverter:
     A class to switch indexes of a dataframe from ids to names and vice versa for metabolites and reactions of a model.
 
     """
-    def __init__(self, model, to_convert: pd.DataFrame, convert: str, to: str):
+    def __init__(self, model, to_convert: Union[pd.DataFrame, Dict, List, cobra.Solution], convert: str, to: str):
         """
         Args:
             model (cobra.Model, mandatory):
@@ -62,9 +62,15 @@ class NameIdConverter:
             self.to_convert = to_convert.copy()
         elif isinstance(to_convert, cobra.core.solution.Solution):
             self.to_convert = to_convert.to_frame().copy()
-        else:
-            df = pd.DataFrame(to_convert)
+        elif isinstance(to_convert, Dict):
+            df = pd.DataFrame(list(to_convert.items()), columns=[to, 'Flux'])  # actually here is convert but it will be replaced
+            df.set_index(to, inplace=True)
             self.to_convert = df.copy()
+        elif isinstance(to_convert, List):
+            df = pd.DataFrame(list(model.medium), columns=[to])
+            df.set_index(to, inplace=True)
+            self.to_convert = df.copy()
+
         self.isIndex = isinstance(to_convert, pd.Index)
 
     def run_convert(self):

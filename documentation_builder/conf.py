@@ -125,13 +125,16 @@ texinfo_documents = [
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
+# [NOTE] To work for networkx I had to remove `reference` from the end of the url.
 intersphinx_mapping = {
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'python': ('http://docs.python.org/', None),
     'numpy': ("http://docs.scipy.org/doc/numpy/", None),
     'scipy': ("http://docs.scipy.org/doc/scipy/reference", None),
-    'networkx': ("https://networkx.org/documentation/stable/reference", None),
-    'dash_cytoscape': ("https://dash.plotly.com/cytoscape/reference", None)
+    'networkx': ("https://networkx.org/documentation/stable/", None),
+    'dash_cytoscape': ("https://dash.plotly.com/cytoscape/", None),
+    'cobra': ("https://cobrapy.readthedocs.io/en/latest/",None),
+    'plotly': ("https://plotly.com/python-api-reference/", None)
 }
 
 intersphinx_cache_limit = 10  # days to keep the cached inventories
