@@ -67,16 +67,35 @@ BIGG_BUILDING_BLOCLS = ['ala_L_c0', 'asp_L_c0', ' gln_L_c0', 'glu_L_c0', 'glu_L_
 
 # Based on 10.1093/gigascience/giy021
 MODELSEED_COFACTORS = [
+    "cpd00001_c0",  # h2o
+    "cpd00002_c0",  # atp
+    "cpd00003_c0",  # nad
     "cpd00004_c0",
     "cpd00005_c0",
+    "cpd00006_c0",  # nadp
+    "cpd00007_c0",
+    "cpd00008_c0",  # adp
+    "cpd00009_c0",  # HZ added
+    "cpd00010_c0",  # CoA
+    "cpd00011_c0",  # co2
+    "cpd00012_c0",  # ppi
+    "cpd00013_c0",  # NH3
+    "cpd00014_c0",
+    "cpd00015_c0",  # fad
+    "cpd00018_c0",  # amp-like
+    "cpd00020_c0",  # pyruvate
+    "cpd00022_c0",
+    "cpd00031_c0",  # gdp-like
+    "cpd00038_c0",  # gtp
+    "cpd00056_c0",  # ttp
+    "cpd00061_c0",  # pep
+    "cpd00067_c0",  # H+
     "cpd15353_c0",
     "cpd15499_c0",
     "cpd15561_c0",
     "cpd00097_c0",
     "cpd00982_c0",
     "cpd01270_c0",
-    "cpd00002_c0",
-    "cpd00038_c0",
     "cpd00052_c0",
     "cpd00062_c0",
     "cpd00068_c0",

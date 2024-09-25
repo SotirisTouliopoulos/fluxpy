@@ -3,7 +3,7 @@
 import cobra
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Literal
 from enum import Enum
 from mergem import merge
 from ..constants import *
@@ -281,7 +281,9 @@ class CompareModels:
 
 
 # %% Util functions
-def map_namespace_to_ModelSEEDDatabase(seed_compounds: List[str], path_to_modelSEEDDatabase: str, annotations_to_keep=['BiGG', 'BiGG1']):
+def map_namespace_to_ModelSEEDDatabase(seed_compounds: List[str],
+                                       path_to_modelSEEDDatabase: str,
+                                       annotations_to_keep=['BiGG', 'BiGG1']):
     """
     This function makes use of the ModelSEEDpy and the ModelSEEDDatabase libraries to map a list of ModelSEED compounds
     to their annotations returning a pandas dataframe with those
@@ -353,50 +355,6 @@ def map_to_namespace(compounds, from_namespace="seed", to_namespace="bigg"):
     return df
 
 
-def track_metabolite_pathways(metabolite,
-                         bigg_model,
-                         BIGG_COFACTORS,
-                         _visited_metabolites=None,
-                         _inner_reactions=None):
-    """
-    Returns pathways that are initiated from a nutrient.
-
-    """
-    _inner_reactions = _inner_reactions if _inner_reactions is not None else set()
-    _visited_metabolites = _visited_metabolites if _visited_metabolites is not None else set()
-
-    # Mark metabolite as visited
-    _visited_metabolites.add(metabolite.id)
-
-    reactions_with_the_met = bigg_model.metabolites.get_by_id(metabolite.id).reactions
-    has_irreversible_reaction = any(not reaction.reversibility for reaction in reactions_with_the_met)
-
-    # Check reactions involving this metabolite
-    for reaction in reactions_with_the_met:
-
-        # Add reaction to _inner_reactions if it's not already there
-        if reaction not in _inner_reactions:
-            _inner_reactions.add(reaction)
-
-            # Traverse through metabolites in the reaction
-            if not reaction.reversibility:
-                if metabolite in reaction.reactants:
-                    for in_metabolite in reaction.products:
-                        _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
-
-                else:
-                    print("metabolite:", metabolite.id, " not as reactant in:", reaction.build_reaction_string())
-            else:
-                print("metabolite:", metabolite.id, "is involved in the reversible reaction:", reaction.build_reaction_string())
-                if len(reactions_with_the_met) == 1 or has_irreversible_reaction is False:
-                    if metabolite in reaction.reactants:
-                        for in_metabolite in reaction.products:
-                            _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
-                    else:
-                        for in_metabolite in reaction.reactants:
-                            _perform_recursive(in_metabolite, reaction, bigg_model, _visited_metabolites, BIGG_COFACTORS, _inner_reactions)
-
-
 def sync_with_medium(model: cobra.Model, medium: Dict):
     """
     Adds metabolites and reactions required to allow a medium to be assigned to a cobra.Model
@@ -434,6 +392,8 @@ def sync_with_medium(model: cobra.Model, medium: Dict):
                 rxn_to_add = complete_model.reactions.get_by_id(edit_ex_react)
                 rxns_to_add.add(rxn_to_add)
                 suggested_medium[edit_ex_react] = medium[ex_react]
+                # logging.info('Reaction added: ', edit_ex_react)
+                print('Reaction added: ', edit_ex_react)
             except:
                 print("Reaction", ex_react,
                       "is not part of the complete model and most likely has not related reactions or it is obsolete. \
@@ -449,30 +409,9 @@ def sync_with_medium(model: cobra.Model, medium: Dict):
     return (model, suggested_medium)
 
 
-
-
-
-
-
 """
 Inner routines
 """
-def _perform_recursive(in_met, reaction, bigg_model, visited_metabolites, BIGG_COFACTORS, inner_reactions):
-    # Check if metabolite is not in BIGG_COFACTORS and not visited
-    if (
-        in_met.id not in BIGG_COFACTORS and
-        in_met.id not in visited_metabolites
-    ):
-        print(">>", in_met.id, "from", reaction.build_reaction_string())
-        # Recursively find inner reactions for this metabolite
-        track_metabolite_pathways(
-            in_met,
-            bigg_model,
-            BIGG_COFACTORS,
-            visited_metabolites, inner_reactions
-        )
-
-
 def _check_if_modelseed_model(model: cobra.Model):
     return model.metabolites[0].id.startswith("cpd")
 

@@ -9,6 +9,18 @@ from ..constants import *
 NestedDataFrameType = pd.DataFrame
 
 
+def extract_model_namespace(model):
+    """
+    Returns a model's namespace considering only ModelSEED and BiGG
+
+    Args:
+        model (cobra.Model, mandatory) -- the model to extract its namespace from
+
+    Returns:
+        namespace (str) -- a Literal["modelseed", "bigg"]
+    """
+    return "modelseed" if model.metabolites[0].id.startswith("cpd") else "bigg"
+
 # %% Util functions: parsing
 
 def nonzero_fluxes(fluxes:  Union[cobra.Solution, pd.Series]) -> None:
@@ -113,6 +125,92 @@ def get_rxns_producing_consuming_met(met_id, model: cobra.Model = None, flux_vec
     return (cons_df, prod_df)
 
 
+def track_metabolite_pathways(
+    metabolite,
+    model,
+    skip_objective=True,
+    _namespace=None,  # Literal["modelseed", "bigg"]
+    _cofactors=None,
+    _visited_metabolites=None,
+    _inner_reactions=None,
+    ):
+    """
+    Returns pathways that are initiated from a nutrient.
+
+    """
+    if _namespace is None:
+        _namespace = extract_model_namespace(model)
+    if _cofactors is None:
+        _cofactors = MODELSEED_COFACTORS if _namespace == "modelseed" else BIGG_COFACTORS if _namespace == "bigg" else \
+                    (_ for _ in ()).throw(ValueError("Invalid namespace. Only 'modelseed' or 'bigg' are allowed."))
+
+    if skip_objective:
+        for r in model.reactions:
+            if r.objective_coefficient != 0 :
+                model.remove_reactions([r])
+        skip_objective = False
+
+    _inner_reactions = _inner_reactions if _inner_reactions is not None else set()
+    _visited_metabolites = _visited_metabolites if _visited_metabolites is not None else set()
+
+    # Mark metabolite as visited
+    _visited_metabolites.add(metabolite.id)
+
+    reactions_with_the_met = model.metabolites.get_by_id(metabolite.id).reactions
+    has_irreversible_reaction = any(not reaction.reversibility for reaction in reactions_with_the_met)
+
+    print("\n\n============\n\n", "Metabolite under study:", metabolite.name, metabolite.id)
+    print("Metabolite's total related reactions to be parsed:", reactions_with_the_met)
+
+    # Check reactions involving this metabolite
+    for reaction in reactions_with_the_met:
+
+        # Add reaction to _inner_reactions if it's not already there
+        if reaction not in _inner_reactions:
+            _inner_reactions.add(reaction)
+
+            print("\nReaction", reaction.id, "added in inner_reactions and is now under proc.")
+
+            # ----
+            # Traverse through metabolites in the reaction
+            # ----
+
+            # In case of a irreversible reaction..
+            if not reaction.reversibility:
+                if metabolite in reaction.reactants:
+                    for in_metabolite in reaction.products:
+                        # [NOTE] If it's an exchange reaction, then products are empty
+                        print("1.Run recursive for IRREVERSIBLE met", in_metabolite.id, "from reaction in proc:", reaction.id)
+                        _perform_recursive(in_metabolite, reaction, model, _visited_metabolites, _cofactors, _inner_reactions)
+                else:
+                    print("2.Metabolite:", metabolite.id, " not as reactant in:", reaction.build_reaction_string(),
+                          "from reaction in proc:", reaction.id, ". Not new recursive.")
+
+            # In case of a reversible reaction..
+            else:
+                # where the metabolite under study either is found only in this reaction or there is at least 1 reaction in those it participates that is reversible
+                if len(reactions_with_the_met) == 1 or has_irreversible_reaction is False:
+
+                    # then, parse through the reaction's products if the met under study is among its reactants
+                    if metabolite in reaction.reactants:
+                        for in_metabolite in reaction.products:
+                            print("3.New recursive for REVERSIBLE reaction in proc", reaction.id, "in products, for met:", in_metabolite.id)
+                            _perform_recursive(in_metabolite, reaction, model, _visited_metabolites, _cofactors, _inner_reactions)
+                    # or the other way around
+                    else:
+                        for in_metabolite in reaction.reactants:
+                            print("4.New recursive for REVERSIBLE reaction in proc", reaction.id, "in reactants, for met:", in_metabolite.id)
+                            _perform_recursive(in_metabolite, reaction, model, _visited_metabolites, _cofactors, _inner_reactions)
+                # where the met under study
+                else:
+                    print("5.Reaction", reaction.id, "is irreversible and there are more than 1 reactions with the met under study (", metabolite.id,
+                          ") among which there is at least one reversible reaction. Thus, we skip further parsing for reac.")
+
+    return(_inner_reactions, _visited_metabolites)
+
+
+
+
 """
 Internal routines
 """
@@ -159,3 +257,19 @@ def _convert_single_element_set(cell):
         return next(iter(cell))  # Convert set to string
     return cell
 
+
+def _perform_recursive(in_met, reaction, model, visited_metabolites, cofactors, inner_reactions):
+    # Check if metabolite is not in BIGG_COFACTORS and not visited
+    if (
+        in_met.id not in cofactors and
+        in_met.id not in visited_metabolites
+    ):
+        print(">>", in_met.id, "from", reaction.build_reaction_string())
+        # Recursively find inner reactions for this metabolite
+        track_metabolite_pathways(
+            metabolite=in_met,
+            model=model,
+            _cofactors = cofactors,
+            _visited_metabolites=visited_metabolites,
+            _inner_reactions=inner_reactions
+        )

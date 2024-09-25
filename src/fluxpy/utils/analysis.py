@@ -199,3 +199,133 @@ def samples_on_qfca(qfca_graph, samples):
         kmeans = KMeans(n_clusters=k)
         kmeans.fit(samples_with_graph_rnxs)
         inertias.append(kmeans.inertia_)
+
+
+# %% Util functions: flux balance analysis
+def producing_or_consuming_a_met(model, reaction_id, metabolite_id):
+    """
+    Returns whether a metabolite is being produced or consumed when model is optimized.
+
+    Args:
+        model (cobra.Model)
+        reaction_id (str)
+        metabolite_id (str)
+
+    Returns:
+        'producing | consuming' (str)
+    """
+    r = model.reactions.get_by_id(reaction_id)
+    met = model.metabolites.get_by_id(metabolite_id)
+    flux_value = r.summary().to_frame()["flux"].item()
+
+    if met not in r.reactants and met not in r.products:
+        return ValueError("the metabolite you are asking is not part of the reaction you gave.")
+
+    if (flux_value > 0 and met in r.products) or ( flux_value < 0 and met in r.reactants):
+        return "producing"
+    elif (flux_value > 0 and met in r.reactants) or (flux_value < 0 and met in r.products):
+        return "consuming"
+
+
+def get_reactions_producing_a_met(model, metabolite_id):
+    """
+    Get reactions that produce a specific metabolite.
+
+    Notes:
+        Exloits the producing_or_consuming_a_met() function
+
+    Args:
+        model (cobra.Model)
+        metabolite_id (str)
+
+    Returns:
+        list of reactions (cobra.Reaction)
+    """
+    rxns = []
+    for reaction in model.metabolites.get_by_id(metabolite_id).reactions:
+        if producing_or_consuming_a_met(model, reaction_id=reaction.id, metabolite_id=metabolite_id) == "producing":
+            rxns.append(reaction)
+    return rxns
+
+
+def trace_path_with_backtracking_iterative(model, start_reaction_id, target_reaction_id, ignore_mets=None):
+    """
+    Trace a path from the start reaction to the target reaction through reactants,
+    using an iterative DFS approach, with backtracking when exchange reactions are encountered.
+
+    Args:
+        model (cobra.Model): COBRApy model object.
+        start_reaction_id (str): The ID of the starting reaction.
+        target_reaction_id (str): The ID of the target reaction.
+        ignore_mets: A list of metabolite IDs to ignore during tracing (optional).
+
+    Returns:
+        keep_rxns: A set of reactions needed to go from start to target, avoiding dead-end exchange reactions.
+    """
+
+    def is_exchange_reaction(reaction):
+        """Check if a reaction is an exchange reaction."""
+        return len(reaction.reactants) == 0 or len(reaction.products) == 0 or reaction.id.startswith("EX_")
+
+    # Initialize structures for DFS
+    visited_reactions = set()  # Tracks all reactions visited to prevent revisiting
+    stack = [(model.reactions.get_by_id(start_reaction_id), [])]
+
+    valid_paths = []  # List to store valid paths that do not dead-end at exchange reactions
+    dead_end_paths = set()  # Tracks reactions leading to dead-end exchange reactions
+
+    keep_rxns = set()  # Final set of reactions in valid paths
+
+    while stack:
+        current_reaction, path = stack.pop()
+
+        # If we reached the target, store the path and continue exploring for other valid paths
+        if current_reaction.id == target_reaction_id:
+            valid_paths.append(path + [current_reaction.id])
+            continue
+
+        # Skip if the current reaction is an exchange reaction
+        if is_exchange_reaction(current_reaction):
+            dead_end_paths.add(current_reaction.id)
+            continue
+
+        visited_reactions.add(current_reaction.id)
+        path.append(current_reaction.id)  # Track the path
+
+        # Explore the reactants of the current reaction
+        if current_reaction.summary().to_frame()["flux"].item() > 0:
+            reactants = current_reaction.reactants
+        else:
+            reactants = current_reaction.products
+
+        found_valid_branch = False  # Track if any valid branches are found from the current reaction
+        for metabolite in reactants:
+
+            if metabolite.id in ignore_mets:
+                continue
+
+            # Find reactions that produce this metabolite
+            rxns = get_reactions_producing_a_met(model, metabolite_id=metabolite.id)
+            for reaction in rxns:
+                flux_value = reaction.summary().to_frame()["flux"].item()
+                if flux_value == 0:
+                    continue
+                if reaction.id not in visited_reactions and reaction.id not in dead_end_paths:
+                    # If we find a valid branch, continue exploring it
+                    stack.append((reaction, path.copy()))  # Add new reaction to stack with the updated path
+                    found_valid_branch = True
+                    keep_rxns.add(reaction.id)
+
+        # If no valid branch was found, mark this reaction as a dead-end (exchange reaction or no valid paths)
+        if not found_valid_branch:
+            dead_end_paths.add(current_reaction.id)
+
+    # If no valid path found, return an empty set
+    if not valid_paths:
+        return set()
+
+    # Return the reactions that are part of any valid path
+    keep_rxns.add(start_reaction_id)
+    return keep_rxns
+
+
