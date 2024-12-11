@@ -430,7 +430,7 @@ bigg_building_blocks = ['ala_L[c]', 'asp_L[c]', ' gln_L[c]', 'glu_L[c]', 'glu_L[
 
 def find_arrow_index():
     # load cobra model
-    cobra_model = load_json_model("../data/e_coli_core.json")
+    cobra_model = load_json_model("../../../ext_data/")
     # list with reactions names
     reactions_ids =  [ reaction.id for reaction in cobra_model.reactions ]
     
@@ -462,7 +462,7 @@ def find_reactants_products_cofactors():
     arrow_indices = find_arrow_index()
     
     # load cobra model
-    cobra_model = load_json_model("../data/e_coli_core.json")
+    cobra_model = load_json_model("../../../ext_data/")
     
     # list with reactions names
     reactions_ids =  [ reaction.id for reaction in cobra_model.reactions ]
