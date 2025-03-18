@@ -7,7 +7,7 @@ from typing import List, Dict, Union, Literal
 from enum import Enum
 from mergem import merge
 from ..constants import *
-from .utils import _convert_list_to_binary, _convert_single_element_set
+from .utils import _convert_list_to_binary, _convert_single_element_set, order_cofactors_by_abundance, find_connected_components, find_first_winning_sublist_with_losers
 from cobra.io import load_json_model
 from collections import defaultdict
 from collections import Counter
@@ -421,7 +421,16 @@ def _check_if_modelseed_model(model: cobra.Model):
 
 
 
-class Cofactor_Specificity:
+class CofactorSpecificity:
+    
+    """
+    Class is used to identify cases where the same biochemical conversion is carried out by different cofactors in the model, 
+    while in reality the organism only uses one of the cofactors. If the cofactor specificity information is available,
+    the reaction with non-specific cofactor can be removed or turned off.
+    
+    This is how to initialize the class:
+    cofactor_specificity = CofactorSpecificity(cobra_model)
+    """
     
     def __init__(self, model):
         
@@ -442,7 +451,7 @@ class Cofactor_Specificity:
             products_list_single_reaction = []
             cofactors_list_single_reaction = []
 
-            reaction_information = cobra_model.reactions.get_by_id(reaction)
+            reaction_information = self.model.reactions.get_by_id(reaction)
             
             reactants = reaction_information.reactants
             products = reaction_information.products
@@ -496,7 +505,7 @@ class Cofactor_Specificity:
                             combinations.append((self.reactions_ids[i], self.reactions_ids[j]))
                         else:
                             if self.reversibility_list_all_reactions[i] == True or self.reversibility_list_all_reactions[j] == True:
-                                # switch reaction i and compare updates reactants-products
+                                # switch the reversibility of reaction i and compare updated reactants-products
                                 identical_reactants = (set(self.reactants_list_all_reactions[i]) == set(self.products_list_all_reactions[j]))
                                 identical_products = (set(self.products_list_all_reactions[i]) == set(self.reactants_list_all_reactions[j]))
 
@@ -509,9 +518,14 @@ class Cofactor_Specificity:
 
     def merge_connected_combinations(self):
         
+        """
+        This function takes as input the pairwise combinations of reactions from above and
+        creates groups of reactions that are candidates for cofactor specificity. It uses a graph-based approach
+        to find connected components in the graph of reactions.
+        """
+        
         self.find_reactions_combinations()
         
-        # Step 1: Create a graph using an adjacency list representation
         # We'll use a defaultdict where each key is a node, and its value is a set of neighboring nodes
         graph = defaultdict(set)
 
@@ -526,42 +540,9 @@ class Cofactor_Specificity:
         # the `graph` looks like:
         # {'A': {'B', 'C'}, 'B': {'A', 'C'}, 'C': {'A', 'B'}, 'D': {'K'}, 'K': {'D'}}
 
-        # Step 2: Define a function to find connected components using Depth-First Search (DFS)
-        def find_connected_components(graph):
-            # A set to keep track of visited nodes
-            visited = set()
-            # A list to store the connected components
-            components = []
-
-            # Helper function to perform a recursive DFS
-            def dfs(node, component):
-                # Mark the current node as visited
-                visited.add(node)
-                # Add the node to the current component
-                component.append(node)
-                # Visit all unvisited neighbors of the current node
-                for neighbor in graph[node]:
-                    if neighbor not in visited:
-                        dfs(neighbor, component)
-
-            # Iterate through all nodes in the graph
-            for node in graph:
-                # If the node has not been visited, it's the start of a new connected component
-                if node not in visited:
-                    # Create a new component (list) to hold connected nodes
-                    component = []
-                    # Perform DFS starting from this node
-                    dfs(node, component)
-                    # Add the completed component to the list of components
-                    components.append(component)
-
-            # Return the list of connected components
-            return components
-
-        # Step 3: Find connected components in the graph
         self.groups = find_connected_components(graph)
 
-        # At this point, `groups` will contain:
+        # At this point, `self.groups` will contain:
         # [['A', 'B', 'C'], ['D', 'K']]
         
 
@@ -573,8 +554,6 @@ class Cofactor_Specificity:
         flat_list = [item for sublist in self.cofactors_list_all_reactions for item in sublist]
         element_counts = Counter(flat_list)  
         self.sorted_counts = element_counts.most_common()
-        
-        print(self.sorted_counts)
         
         
     def remove_reactions(self):
@@ -593,9 +572,7 @@ class Cofactor_Specificity:
         for group in self.groups:
             keep_indices_group = []
             cofactors_count_min = float('+inf')
-            
-            print(group)
-            
+                        
             # find minimum number of cofactors across reactions of a single group
             for reaction in group:
                 reaction_index = self.reactions_ids.index(reaction)   
@@ -605,7 +582,7 @@ class Cofactor_Specificity:
                 if cofactors_count < cofactors_count_min:
                     cofactors_count_min = cofactors_count
 
-                print(reaction, reaction_cofactors, cofactors_count, cofactors_count_min)
+                #print(reaction, reaction_cofactors, cofactors_count, cofactors_count_min)
                 
             # find which reactions match the minimum number of cofactors
             for reaction in group:
@@ -627,101 +604,20 @@ class Cofactor_Specificity:
             if len(keep_indices_group) > 1:
                 # find which reaction has the most abundant cofactor (general abundance from the model) 
                 # if the most abundant cofactor appears in all reactions, then check the next most abundant cofactor
-                
-                
-                def order_cofactors_by_abundance(sorted_counts_data, specific_reaction_cofactors):
-                    
-                    """
-                    Function that takes the cofactors of a single reaction and sorts them 
-                    based on their overall abundance in the model
 
-                    Example input:
-                    
-                    sorted_counts_data = [('h_c', 35), ('h2o_c', 18), ('h_e', 17), ('atp_c', 13), 
-                                        ('adp_c', 12), ('nad_c', 12), ('nadh_c', 12), ('pi_c', 12)]
-                                        
-                    specific_reaction_cofactors = ['h_e', 'h_c', 'adp_c', 'nadh_c']
-                    
-                    Example output:
-                    
-                    [35, 17, 12, 12]
-                    """
-
-                    # Convert the list of tuples to a dictionary for fast lookup
-                    abundance_dict = dict(sorted_counts_data)
-                    
-                    # Sort the items based on their abundance in the dictionary
-                    sorted_cofactors = sorted(specific_reaction_cofactors, key=lambda x: abundance_dict.get(x, 0), reverse=True)
-                    sorted_abundances = [abundance_dict.get(item, 0) for item in sorted_cofactors]
-                    
-                    return sorted_abundances
-                     
-                      
-                def find_first_winning_sublist(sublists):
-                    
-                    """
-                    Function to find which reaction to keep from a certain group 
-
-                    Example input:
-                    
-                    sublists = [
-                        [9, 3, 5, 7],
-                        [9, 3, 4, 6],
-                        [0, 5, 3, 3],
-                        [4, 2, 1, 6],
-                        [7, 3, 2, 0]
-                    ]
-                    
-                    Example output:
-                    
-                    [9, 3, 5, 7]
-                    
-                    """
-                    
-                    num_sublists = len(sublists)
-                    max_index = 0  # Start with the first sublist as the default winner
-                    losers_indices = []  # List to store indices of non-winning sublists
-                    
-                    # Loop through the sublists to compare each one
-                    for i in range(1, num_sublists):
-                        for j, (a, b) in enumerate(zip(sublists[max_index], sublists[i])):
-                            if a > b:
-                                break  # Current winner is better; move to the next sublist
-                            elif b > a:
-                                max_index = i  # Update the winner index if the current sublist is better
-                                break
-                        else:
-                            # If all comparable elements are equal, assign the first as a winner
-                            max_index = 0
-                    
-                    # Identify non-winning sublists and store their indices
-                    for i in range(num_sublists):
-                        if i != max_index:
-                            losers_indices.append(i)
-                    
-                    
-                    # group_reactions_knockout = group[losers_indices]
-                    for loser_index in losers_indices:
-                        reaction_general_index = self.reactions_ids.index(group[loser_index])
-                        self.knockout_indices_all.append(reaction_general_index)
-                    
-                            
-                
                 # apply the 'order_cofactors_by_abundance' function to reactions in the 'keep_indices' list
                 # of the current group. Add all sorted abundance of cofactors for each reactions in a list
-                # then call the 'find_first_winning_sublist' and add indices of the loser sublists into a list
+                # then call the 'find_first_winning_sublist_with_losers' and add indices of the loser sublists into a list
                                     
                 sorted_abundance_all_reactions = [
                 order_cofactors_by_abundance(self.sorted_counts, self.cofactors_list_all_reactions[idx])
                 for idx in keep_indices_group ]
                 
-                find_first_winning_sublist(sorted_abundance_all_reactions)                                
-                    
-        
-        self.remove_reactions()           
+                _, losers_indices = find_first_winning_sublist_with_losers(sorted_abundance_all_reactions)
                 
+                for loser_index in losers_indices:
+                    reaction_general_index = self.reactions_ids.index(group[loser_index])
+                    self.knockout_indices_all.append(reaction_general_index)                            
+            
         
-
-cobra_model = load_json_model("../../../ext_data/models/e_coli_core.json")
-cofactor_specificity = Cofactor_Specificity(cobra_model)
-cofactor_specificity.filter_reactions()
+        self.remove_reactions()
